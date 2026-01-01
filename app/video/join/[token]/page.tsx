@@ -25,6 +25,12 @@ export default function VideoJoinPage() {
     }
   }, [data?.resolveVideoInvite, router]);
 
+  useEffect(() => {
+    if (error?.message.includes("Not authenticated")) {
+      router.replace(`/login?returnUrl=${encodeURIComponent(`/video/join/${token}`)}`);
+    }
+  }, [error?.message, router, token]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F0F8FF] flex items-center justify-center">
@@ -33,7 +39,7 @@ export default function VideoJoinPage() {
     );
   }
 
-  if (error) {
+  if (error && !error.message.includes("Not authenticated")) {
     return (
       <div className="min-h-screen bg-[#F0F8FF] flex items-center justify-center">
         <div className="bg-white rounded-2xl border border-[#D6E8F5] p-8 text-center max-w-sm shadow-sm">

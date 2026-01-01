@@ -3,6 +3,7 @@ import { GraphQLContext } from '@/graphql/context';
 import { RedisKeys } from '@/lib/redisKeys';
 import { generateLiveKitToken } from '@/lib/livekit';
 import { tryGetIO } from '@/lib/socketIO';
+import { env } from '@/lib/env';
 
 export const videoResolvers = {
   Query: {
@@ -223,8 +224,7 @@ export const videoResolvers = {
 
       await ctx.redis.set(`videoinvite:${token}`, args.videoRoomId, 'EX', ttl);
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ORIGIN ?? 'http://localhost:3000';
-      return `${baseUrl}/video/join/${token}`;
+      return `${env.APP_ORIGIN}/video/join/${token}`;
     },
   },
 

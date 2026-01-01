@@ -39,6 +39,25 @@ function AttachmentIcon({ type }: { type: string }) {
   return <FileText size={18} />;
 }
 
+function renderLinkedContent(content: string) {
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  return content.split(urlPattern).map((part, index) => {
+    if (!/^https?:\/\//.test(part)) return part;
+
+    return (
+      <a
+        key={`${part}-${index}`}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold text-[#0A7A65] underline decoration-[#1ABC9C]/50 underline-offset-2 break-all hover:text-[#075E50]"
+      >
+        {part}
+      </a>
+    );
+  });
+}
+
 export function ChatBubble({
   content,
   isSent,
@@ -72,7 +91,7 @@ export function ChatBubble({
       <div className={bubbleClass}>
         {content && (
           <p className={`leading-relaxed whitespace-pre-wrap ${deleted ? 'italic text-[#6B7A99]' : ''}`}>
-            {content}
+            {renderLinkedContent(content)}
           </p>
         )}
 

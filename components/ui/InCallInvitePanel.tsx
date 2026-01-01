@@ -64,6 +64,21 @@ const SEND_INVITE_MESSAGE = gql`
   }
 `;
 
+function normalizeVideoInviteUrl(inviteUrl: string): string {
+  if (typeof window === "undefined") return inviteUrl;
+
+  try {
+    const url = new URL(inviteUrl, window.location.origin);
+    if (url.pathname.startsWith("/video/join/")) {
+      url.protocol = window.location.protocol;
+      url.host = window.location.host;
+    }
+    return url.toString();
+  } catch {
+    return inviteUrl;
+  }
+}
+
 export function InCallInvitePanel({ videoRoomId, onClose }: InCallInvitePanelProps) {
   const { showToast } = useToast();
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -81,7 +96,7 @@ export function InCallInvitePanel({ videoRoomId, onClose }: InCallInvitePanelPro
         variables: { videoRoomId, ttl: 3600 },
       });
       if (data?.generateVideoInviteLink) {
-        setGeneratedLink(data.generateVideoInviteLink);
+        setGeneratedLink(normalizeVideoInviteUrl(data.generateVideoInviteLink));
       }
     } catch (error: unknown) {
       showToast(error instanceof Error ? error.message : "Could not generate invite link", "error");
