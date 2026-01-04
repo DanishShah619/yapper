@@ -28,6 +28,12 @@ type SocketUser = {
 
 type DependencyStatus = 'ok' | 'error';
 
+type WaitingRoomUser = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
 async function withTimeout<T>(label: string, operation: Promise<T>, timeoutMs: number): Promise<T> {
   let timeoutId: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -303,6 +309,19 @@ async function main() {
         const room = await prisma.videoRoom.findUnique({ where: { id: roomId } });
         if (room?.createdBy === userId) {
           socket.join(`videoadmin:${roomId}`);
+          const waitingUserIds = await pubClient.sMembers(`waitingroom:${roomId}`);
+          const waitingUsers = waitingUserIds.length
+            ? await prisma.user.findMany({
+                where: { id: { in: waitingUserIds } },
+                select: { id: true, username: true, avatarUrl: true },
+              })
+            : [];
+          const waitingById = new Map(waitingUsers.map((user) => [user.id, user]));
+          const orderedWaitingUsers: WaitingRoomUser[] = waitingUserIds
+            .map((waitingUserId) => waitingById.get(waitingUserId))
+            .filter((user): user is WaitingRoomUser => Boolean(user));
+
+          socket.emit('waiting:sync', { roomId, users: orderedWaitingUsers });
         }
       } catch (err) {
         console.error('[Video] videoadmin:join handler error:', err);

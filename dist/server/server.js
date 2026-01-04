@@ -286,6 +286,18 @@ async function main() {
                 const room = await prisma_1.prisma.videoRoom.findUnique({ where: { id: roomId } });
                 if ((room === null || room === void 0 ? void 0 : room.createdBy) === userId) {
                     socket.join(`videoadmin:${roomId}`);
+                    const waitingUserIds = await pubClient.sMembers(`waitingroom:${roomId}`);
+                    const waitingUsers = waitingUserIds.length
+                        ? await prisma_1.prisma.user.findMany({
+                            where: { id: { in: waitingUserIds } },
+                            select: { id: true, username: true, avatarUrl: true },
+                        })
+                        : [];
+                    const waitingById = new Map(waitingUsers.map((user) => [user.id, user]));
+                    const orderedWaitingUsers = waitingUserIds
+                        .map((waitingUserId) => waitingById.get(waitingUserId))
+                        .filter((user) => Boolean(user));
+                    socket.emit('waiting:sync', { roomId, users: orderedWaitingUsers });
                 }
             }
             catch (err) {

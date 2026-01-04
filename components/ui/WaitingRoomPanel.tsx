@@ -46,8 +46,13 @@ export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
 
   useEffect(() => {
     if (!socket) return;
+    if (socket.disconnected) socket.connect();
 
     socket.emit('videoadmin:join', { roomId });
+
+    const onSync = ({ users }: { roomId: string; users: WaitingUser[] }) => {
+      setWaitingUsers(users);
+    };
 
     const onJoined = ({ user }: { roomId: string; user: WaitingUser }) => {
       setWaitingUsers(prev => {
@@ -60,10 +65,12 @@ export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
       setWaitingUsers(prev => prev.filter(u => u.id !== userId));
     };
 
+    socket.on('waiting:sync', onSync);
     socket.on('waiting:joined', onJoined);
     socket.on('waiting:left', onLeft);
 
     return () => {
+      socket.off('waiting:sync', onSync);
       socket.off('waiting:joined', onJoined);
       socket.off('waiting:left', onLeft);
     };

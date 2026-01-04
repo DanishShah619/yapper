@@ -28,6 +28,7 @@ export default function WaitingRoomPage() {
 
   useEffect(() => {
     if (!socket || effectiveRoomState !== 'WAITING') return;
+    if (socket.disconnected) socket.connect();
 
     socket.emit('waiting:join', { roomId: id });
 

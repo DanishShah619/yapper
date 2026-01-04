@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
@@ -10,6 +10,7 @@ import { Copy, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, U
 import { WaitingRoomPanel } from '@/components/ui/WaitingRoomPanel';
 import { InCallInvitePanel } from '@/components/ui/InCallInvitePanel';
 import { useToast } from '@/components/ui/Toast';
+import { useSocket } from '@/app/providers';
 
 const GET_LIVEKIT_TOKEN = gql`
   query GetLiveKitToken($roomId: ID!) {
@@ -175,10 +176,11 @@ export default function VideoRoomPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const { socket } = useSocket();
 
   const [waitingPanelOpen, setWaitingPanelOpen] = useState(false);
   const [invitePanelOpen, setInvitePanelOpen] = useState(false);
-  const waitingCount = 0; // This would be synced via socket in a real app or within the panel
+  const [waitingUserIds, setWaitingUserIds] = useState<string[]>([]);
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
   const { data: statusData, refetch: refetchStatus } = useQuery<{
@@ -203,16 +205,49 @@ export default function VideoRoomPage() {
     variables: { roomId: id }
   });
 
+  const roomInfo = statusData?.videoRoom;
+  const isAdmin = roomInfo?.createdBy === meData?.me?.id;
+  const isLocked = roomInfo?.locked || false;
+  const waitingCount = waitingUserIds.length;
+
+  useEffect(() => {
+    if (!socket || !isAdmin) return;
+    if (socket.disconnected) socket.connect();
+
+    socket.emit('videoadmin:join', { roomId: id });
+
+    const onSync = ({ users }: { roomId: string; users: { id: string }[] }) => {
+      setWaitingUserIds(users.map((user) => user.id));
+    };
+
+    const onJoined = ({ user }: { roomId: string; user: { id: string } }) => {
+      setWaitingUserIds((prev) => {
+        if (prev.includes(user.id)) return prev;
+        return [...prev, user.id];
+      });
+    };
+
+    const onLeft = ({ userId }: { roomId: string; userId: string }) => {
+      setWaitingUserIds((prev) => prev.filter((id) => id !== userId));
+    };
+
+    socket.on('waiting:sync', onSync);
+    socket.on('waiting:joined', onJoined);
+    socket.on('waiting:left', onLeft);
+
+    return () => {
+      socket.off('waiting:sync', onSync);
+      socket.off('waiting:joined', onJoined);
+      socket.off('waiting:left', onLeft);
+    };
+  }, [id, isAdmin, socket]);
+
   if (tokenLoading) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-white">Connecting...</div>;
   if (tokenError) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-[#DC2626]">{tokenError.message}</div>;
 
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const token = tokenData?.getLiveKitToken;
-  const roomInfo = statusData?.videoRoom;
   const joinUrl = typeof window === 'undefined' ? `/video/${id}/waiting` : `${window.location.origin}/video/${id}/waiting`;
-
-  const isAdmin = roomInfo?.createdBy === meData?.me?.id;
-  const isLocked = roomInfo?.locked || false;
 
   const copyText = async (value: string, label: string) => {
     try {
