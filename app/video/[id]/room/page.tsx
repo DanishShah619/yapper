@@ -202,7 +202,8 @@ export default function VideoRoomPage() {
   });
 
   const { data: tokenData, loading: tokenLoading, error: tokenError } = useQuery<{ getLiveKitToken: string }>(GET_LIVEKIT_TOKEN, { 
-    variables: { roomId: id }
+    variables: { roomId: id },
+    fetchPolicy: 'no-cache',
   });
 
   const roomInfo = statusData?.videoRoom;

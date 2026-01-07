@@ -49,11 +49,6 @@ body {
   background: #BAD9F5;
 }
 
-/* LiveKit grid tile sizing */
-.lk-grid-layout {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
 .lk-participant-tile {
   min-height: 200px;
 }
