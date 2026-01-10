@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { GridLayout, LiveKitRoom, ParticipantTile, RoomAudioRenderer, useLocalParticipant, useTracks } from '@livekit/components-react';
 import { RoomOptions, Track } from 'livekit-client';
-import { Copy, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff } from 'lucide-react';
+import { Copy, Info, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff, X } from 'lucide-react';
 import { WaitingRoomPanel } from '@/components/ui/WaitingRoomPanel';
 import { InCallInvitePanel } from '@/components/ui/InCallInvitePanel';
 import { useToast } from '@/components/ui/Toast';
@@ -180,6 +180,7 @@ export default function VideoRoomPage() {
 
   const [waitingPanelOpen, setWaitingPanelOpen] = useState(false);
   const [invitePanelOpen, setInvitePanelOpen] = useState(false);
+  const [roomInfoOpen, setRoomInfoOpen] = useState(false);
   const [waitingUserIds, setWaitingUserIds] = useState<string[]>([]);
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
@@ -265,55 +266,66 @@ export default function VideoRoomPage() {
 
   return (
     <div className="flex flex-col bg-[#0A0A0A] h-screen relative">
-      <div className="absolute left-4 right-4 top-4 z-30 rounded-xl border border-white/10 bg-[#111111]/85 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-[#1ABC9C]">Video room</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isLocked ? 'bg-[#7C3AED] text-white' : 'bg-[#D0F5EE] text-[#0A7A65]'}`}>
-                {isLocked ? 'Locked' : 'Open'}
-              </span>
-              {isAdmin && (
+      {isAdmin && (
+        <div className="absolute left-4 top-4 z-30 text-white">
+          <button
+            type="button"
+            title={roomInfoOpen ? 'Close room information' : 'Open room information'}
+            aria-label={roomInfoOpen ? 'Close room information' : 'Open room information'}
+            aria-expanded={roomInfoOpen}
+            onClick={() => setRoomInfoOpen((open) => !open)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#111111]/85 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-[#1F2937]"
+          >
+            {roomInfoOpen ? <X size={18} /> : <Info size={18} />}
+          </button>
+
+          {roomInfoOpen && (
+            <div className="mt-3 w-[min(calc(100vw-2rem),520px)] rounded-xl border border-white/10 bg-[#111111]/90 px-4 py-3 shadow-lg backdrop-blur-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-[#1ABC9C]">Video room</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isLocked ? 'bg-[#7C3AED] text-white' : 'bg-[#D0F5EE] text-[#0A7A65]'}`}>
+                  {isLocked ? 'Locked' : 'Open'}
+                </span>
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white">
                   Host
                 </span>
-              )}
+              </div>
+              <div className="mt-3 grid gap-1 text-xs font-medium text-white/75">
+                <p className="truncate">
+                  Room ID: <span className="font-mono text-white">{id}</span>
+                </p>
+                <p className="truncate">
+                  LiveKit ID: <span className="font-mono text-white">{roomInfo?.liveKitRoomId ?? 'Pending'}</span>
+                </p>
+                <p className="truncate">
+                  Join URL: <span className="font-mono text-white">{joinUrl}</span>
+                </p>
+                <p>
+                  Limit: <span className="text-white">{roomInfo?.maxParticipants ?? 4} participants</span>
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyText(id, 'Room ID')}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/20"
+                >
+                  <Copy size={14} />
+                  Room ID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyText(joinUrl, 'Join URL')}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#1ABC9C] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#17a589]"
+                >
+                  <Copy size={14} />
+                  Join URL
+                </button>
+              </div>
             </div>
-            <div className="mt-2 grid gap-1 text-xs font-medium text-white/75 md:grid-cols-2">
-              <p className="truncate">
-                Room ID: <span className="font-mono text-white">{id}</span>
-              </p>
-              <p className="truncate">
-                LiveKit ID: <span className="font-mono text-white">{roomInfo?.liveKitRoomId ?? 'Pending'}</span>
-              </p>
-              <p className="truncate">
-                Join URL: <span className="font-mono text-white">{joinUrl}</span>
-              </p>
-              <p>
-                Limit: <span className="text-white">{roomInfo?.maxParticipants ?? 4} participants</span>
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => copyText(id, 'Room ID')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/20"
-            >
-              <Copy size={14} />
-              Room ID
-            </button>
-            <button
-              type="button"
-              onClick={() => copyText(joinUrl, 'Join URL')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#1ABC9C] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#17a589]"
-            >
-              <Copy size={14} />
-              Join URL
-            </button>
-          </div>
+          )}
         </div>
-      </div>
+      )}
       <div className="flex-1 overflow-hidden">
         {token ? (
           <LiveKitRoom
