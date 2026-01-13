@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { GridLayout, LiveKitRoom, ParticipantTile, RoomAudioRenderer, useLocalParticipant, useTracks } from '@livekit/components-react';
 import { RoomOptions, Track } from 'livekit-client';
-import { Copy, Info, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff, X } from 'lucide-react';
+import { ArrowLeft, Copy, Info, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff, X } from 'lucide-react';
 import { WaitingRoomPanel } from '@/components/ui/WaitingRoomPanel';
 import { InCallInvitePanel } from '@/components/ui/InCallInvitePanel';
 import { useToast } from '@/components/ui/Toast';
@@ -266,8 +266,18 @@ export default function VideoRoomPage() {
 
   return (
     <div className="flex flex-col bg-[#0A0A0A] h-screen relative">
+      <button
+        type="button"
+        title="Back"
+        aria-label="Back"
+        onClick={handleDisconnect}
+        className="absolute left-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#111111]/85 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-[#1F2937]"
+      >
+        <ArrowLeft size={20} />
+      </button>
+
       {isAdmin && (
-        <div className="absolute left-4 top-4 z-30 text-white">
+        <div className="absolute left-4 top-16 z-30 text-white">
           <button
             type="button"
             title={roomInfoOpen ? 'Close room information' : 'Open room information'}
