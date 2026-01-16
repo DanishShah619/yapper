@@ -1,11 +1,11 @@
 # Graph Report - yapper  (2026-05-11)
 
 ## Corpus Check
-- 101 files · ~50,595 words
+- 102 files · ~51,120 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 297 nodes · 301 edges · 12 communities detected
+- 299 nodes · 302 edges · 12 communities detected
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 39 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -74,12 +74,12 @@ Cohesion: 0.18
 Nodes (5): VideoListPage(), WaitingRoomPage(), Providers(), useSocket(), useToast()
 
 ### Community 6 - "Community 6"
-Cohesion: 0.29
-Nodes (7): validateSession(), verifyToken(), deleteSession(), getSession(), legacySessionKey(), sessionKey(), setSession()
-
-### Community 7 - "Community 7"
 Cohesion: 0.22
 Nodes (4): generateUserKeyPair(), loadPrivateKey(), savePrivateKey(), initUserKeys()
+
+### Community 7 - "Community 7"
+Cohesion: 0.29
+Nodes (7): validateSession(), verifyToken(), deleteSession(), getSession(), legacySessionKey(), sessionKey(), setSession()
 
 ### Community 8 - "Community 8"
 Cohesion: 0.42

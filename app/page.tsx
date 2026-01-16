@@ -3,11 +3,12 @@
 import { useEffect } from 'react';
 import { useQuery, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { disconnectSocket } from '@/lib/socketClient';
 import { Component as EtherealShadow } from '@/components/ui/etheral-shadow';
 import { GlowingCard } from '@/components/ui/glowing-card';
-import { MessageSquare, Users, Home, Video } from 'lucide-react';
+import { Code2, Mail, MessageSquare, Users, Home, Video } from 'lucide-react';
 
 const ME_QUERY = gql`
   query Me {
@@ -167,6 +168,30 @@ export default function DashboardPage() {
             </div>
           </div>
         </main>
+
+        <footer className="dashboard-footer">
+          <div className="dashboard-footer-user">
+            <div className="dashboard-footer-avatar">
+              {user?.username?.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="dashboard-footer-label">Signed in as</p>
+              <p className="dashboard-footer-name">@{user?.username}</p>
+              <p className="dashboard-footer-email">{user?.email}</p>
+            </div>
+          </div>
+
+          <div className="dashboard-footer-actions">
+            <span className="dashboard-footer-dev">
+              <Code2 size={15} />
+              Developer: danish_shanil
+            </span>
+            <Link href="/contact" className="dashboard-contact-link">
+              <Mail size={15} />
+              Contact
+            </Link>
+          </div>
+        </footer>
       </div>
 
       <style>{`
@@ -305,6 +330,111 @@ export default function DashboardPage() {
           font-size: 13px;
           color: #6b7280;
           margin: 0;
+        }
+
+        .dashboard-footer {
+          max-width: 960px;
+          margin: 0 auto;
+          padding: 18px 24px 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          color: #9ca3af;
+        }
+
+        .dashboard-footer-user,
+        .dashboard-footer-actions,
+        .dashboard-footer-dev,
+        .dashboard-contact-link {
+          display: flex;
+          align-items: center;
+        }
+
+        .dashboard-footer-user {
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .dashboard-footer-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #f0f0f5;
+          font-size: 13px;
+          font-weight: 700;
+          flex: 0 0 auto;
+        }
+
+        .dashboard-footer-label,
+        .dashboard-footer-name,
+        .dashboard-footer-email {
+          margin: 0;
+        }
+
+        .dashboard-footer-label {
+          font-size: 11px;
+          color: #6b7280;
+        }
+
+        .dashboard-footer-name {
+          font-size: 13px;
+          color: #f0f0f5;
+          font-weight: 600;
+        }
+
+        .dashboard-footer-email {
+          font-size: 12px;
+          color: #7c8594;
+          overflow-wrap: anywhere;
+        }
+
+        .dashboard-footer-actions {
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .dashboard-footer-dev {
+          gap: 6px;
+          font-size: 12px;
+          color: #a5b4fc;
+          white-space: nowrap;
+        }
+
+        .dashboard-contact-link {
+          gap: 6px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.06);
+          color: #e5e7eb;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 8px 12px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+
+        .dashboard-contact-link:hover {
+          border-color: rgba(129, 140, 248, 0.35);
+          background: rgba(129, 140, 248, 0.12);
+          color: #ffffff;
+        }
+
+        @media (max-width: 700px) {
+          .dashboard-footer {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .dashboard-footer-actions {
+            justify-content: flex-start;
+          }
         }
       `}</style>
     </div>
