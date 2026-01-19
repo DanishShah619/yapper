@@ -11,7 +11,7 @@ import {
 
 const developer = {
   name: 'Danish Shanil',
-  handle: 'danish_shanil',
+  handle: 'danish_shah',
   phone: '9123707332',
   email: 'shanildanshah@gmail.com',
   github: 'https://github.com/DanishShah619',

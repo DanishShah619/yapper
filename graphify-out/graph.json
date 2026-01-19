@@ -162,7 +162,7 @@
       "source_file": "app\\page.tsx",
       "source_location": "L1",
       "id": "app_page_tsx",
-      "community": 11,
+      "community": 12,
       "norm_label": "page.tsx"
     },
     {
@@ -171,7 +171,7 @@
       "source_file": "app\\page.tsx",
       "source_location": "L41",
       "id": "page_handlelogout",
-      "community": 11,
+      "community": 12,
       "norm_label": "handlelogout()"
     },
     {
@@ -378,7 +378,7 @@
       "source_file": "app\\connections\\page.tsx",
       "source_location": "L1",
       "id": "app_connections_page_tsx",
-      "community": 14,
+      "community": 15,
       "norm_label": "page.tsx"
     },
     {
@@ -387,7 +387,7 @@
       "source_file": "app\\connections\\page.tsx",
       "source_location": "L84",
       "id": "page_handlerespond",
-      "community": 14,
+      "community": 15,
       "norm_label": "handlerespond()"
     },
     {
@@ -396,7 +396,7 @@
       "source_file": "app\\connections\\page.tsx",
       "source_location": "L89",
       "id": "page_handleremoveclick",
-      "community": 14,
+      "community": 15,
       "norm_label": "handleremoveclick()"
     },
     {
@@ -405,7 +405,7 @@
       "source_file": "app\\connections\\page.tsx",
       "source_location": "L94",
       "id": "page_executeremove",
-      "community": 14,
+      "community": 15,
       "norm_label": "executeremove()"
     },
     {
@@ -558,7 +558,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L1",
       "id": "app_video_id_room_page_tsx",
-      "community": 9,
+      "community": 10,
       "norm_label": "page.tsx"
     },
     {
@@ -567,7 +567,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L43",
       "id": "page_videogrid",
-      "community": 9,
+      "community": 10,
       "norm_label": "videogrid()"
     },
     {
@@ -576,7 +576,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L91",
       "id": "page_togglemic",
-      "community": 9,
+      "community": 10,
       "norm_label": "togglemic()"
     },
     {
@@ -585,7 +585,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L96",
       "id": "page_togglecamera",
-      "community": 9,
+      "community": 10,
       "norm_label": "togglecamera()"
     },
     {
@@ -594,7 +594,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L101",
       "id": "page_togglescreenshare",
-      "community": 9,
+      "community": 10,
       "norm_label": "togglescreenshare()"
     },
     {
@@ -603,7 +603,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L221",
       "id": "page_onsync",
-      "community": 9,
+      "community": 10,
       "norm_label": "onsync()"
     },
     {
@@ -612,7 +612,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L225",
       "id": "page_onjoined",
-      "community": 9,
+      "community": 10,
       "norm_label": "onjoined()"
     },
     {
@@ -621,7 +621,7 @@
       "source_file": "app\\video\\[id]\\room\\page.tsx",
       "source_location": "L232",
       "id": "page_onleft",
-      "community": 9,
+      "community": 10,
       "norm_label": "onleft()"
     },
     {
@@ -711,35 +711,98 @@
       "source_file": "components\\ui\\ChatBubble.tsx",
       "source_location": "L1",
       "id": "components_ui_chatbubble_tsx",
-      "community": 15,
+      "community": 6,
       "norm_label": "chatbubble.tsx"
     },
     {
       "label": "formatSize()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L30",
+      "source_location": "L32",
       "id": "chatbubble_formatsize",
-      "community": 15,
+      "community": 6,
       "norm_label": "formatsize()"
     },
     {
       "label": "AttachmentIcon()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L36",
+      "source_location": "L38",
       "id": "chatbubble_attachmenticon",
-      "community": 15,
+      "community": 6,
       "norm_label": "attachmenticon()"
     },
     {
       "label": "renderLinkedContent()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L42",
+      "source_location": "L44",
       "id": "chatbubble_renderlinkedcontent",
-      "community": 15,
+      "community": 6,
       "norm_label": "renderlinkedcontent()"
+    },
+    {
+      "label": "handlePointerDown()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L96",
+      "id": "chatbubble_handlepointerdown",
+      "community": 6,
+      "norm_label": "handlepointerdown()"
+    },
+    {
+      "label": "handleKeyDown()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L102",
+      "id": "chatbubble_handlekeydown",
+      "community": 6,
+      "norm_label": "handlekeydown()"
+    },
+    {
+      "label": "clearLongPressTimer()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L121",
+      "id": "chatbubble_clearlongpresstimer",
+      "community": 6,
+      "norm_label": "clearlongpresstimer()"
+    },
+    {
+      "label": "isInteractiveTarget()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L127",
+      "id": "chatbubble_isinteractivetarget",
+      "community": 6,
+      "norm_label": "isinteractivetarget()"
+    },
+    {
+      "label": "handleBubbleClick()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L131",
+      "id": "chatbubble_handlebubbleclick",
+      "community": 6,
+      "norm_label": "handlebubbleclick()"
+    },
+    {
+      "label": "handleBubblePointerDown()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L138",
+      "id": "chatbubble_handlebubblepointerdown",
+      "community": 6,
+      "norm_label": "handlebubblepointerdown()"
+    },
+    {
+      "label": "runAction()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L150",
+      "id": "chatbubble_runaction",
+      "community": 6,
+      "norm_label": "runaction()"
     },
     {
       "label": "ChatEmptyState.tsx",
@@ -1287,7 +1350,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L1",
       "id": "components_ui_waitingroompanel_tsx",
-      "community": 12,
+      "community": 13,
       "norm_label": "waitingroompanel.tsx"
     },
     {
@@ -1296,7 +1359,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L53",
       "id": "waitingroompanel_onsync",
-      "community": 12,
+      "community": 13,
       "norm_label": "onsync()"
     },
     {
@@ -1305,7 +1368,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L57",
       "id": "waitingroompanel_onjoined",
-      "community": 12,
+      "community": 13,
       "norm_label": "onjoined()"
     },
     {
@@ -1314,7 +1377,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L64",
       "id": "waitingroompanel_onleft",
-      "community": 12,
+      "community": 13,
       "norm_label": "onleft()"
     },
     {
@@ -1323,7 +1386,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L79",
       "id": "waitingroompanel_handleapprove",
-      "community": 12,
+      "community": 13,
       "norm_label": "handleapprove()"
     },
     {
@@ -1332,7 +1395,7 @@
       "source_file": "components\\ui\\WaitingRoomPanel.tsx",
       "source_location": "L89",
       "id": "waitingroompanel_handlereject",
-      "community": 12,
+      "community": 13,
       "norm_label": "handlereject()"
     },
     {
@@ -1395,7 +1458,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L1",
       "id": "graphql_resolvers_groups_ts",
-      "community": 10,
+      "community": 11,
       "norm_label": "groups.ts"
     },
     {
@@ -1404,7 +1467,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L9",
       "id": "groups_requireadmin",
-      "community": 10,
+      "community": 11,
       "norm_label": "requireadmin()"
     },
     {
@@ -1413,7 +1476,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L18",
       "id": "groups_requiremember",
-      "community": 10,
+      "community": 11,
       "norm_label": "requiremember()"
     },
     {
@@ -1422,7 +1485,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L27",
       "id": "groups_requireconnectionguard",
-      "community": 10,
+      "community": 11,
       "norm_label": "requireconnectionguard()"
     },
     {
@@ -1431,7 +1494,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L33",
       "id": "groups_getgroupwithmembersandcreator",
-      "community": 10,
+      "community": 11,
       "norm_label": "getgroupwithmembersandcreator()"
     },
     {
@@ -1494,7 +1557,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L1",
       "id": "graphql_resolvers_messaging_ts",
-      "community": 2,
+      "community": 9,
       "norm_label": "messaging.ts"
     },
     {
@@ -1503,7 +1566,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L12",
       "id": "messaging_tousershape",
-      "community": 2,
+      "community": 9,
       "norm_label": "tousershape()"
     },
     {
@@ -1512,7 +1575,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L16",
       "id": "messaging_toroomshape",
-      "community": 2,
+      "community": 9,
       "norm_label": "toroomshape()"
     },
     {
@@ -1521,7 +1584,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L36",
       "id": "messaging_tomsgshape",
-      "community": 2,
+      "community": 9,
       "norm_label": "tomsgshape()"
     },
     {
@@ -1530,7 +1593,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L61",
       "id": "messaging_tofileshape",
-      "community": 2,
+      "community": 9,
       "norm_label": "tofileshape()"
     },
     {
@@ -1539,7 +1602,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L75",
       "id": "messaging_emitrealtimemessage",
-      "community": 2,
+      "community": 9,
       "norm_label": "emitrealtimemessage()"
     },
     {
@@ -1548,7 +1611,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L79",
       "id": "messaging_emitrealtimemessageupdate",
-      "community": 2,
+      "community": 9,
       "norm_label": "emitrealtimemessageupdate()"
     },
     {
@@ -1557,7 +1620,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L83",
       "id": "messaging_emitrealtimemessagedelete",
-      "community": 2,
+      "community": 9,
       "norm_label": "emitrealtimemessagedelete()"
     },
     {
@@ -1665,7 +1728,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L1",
       "id": "lib_connections_ts",
-      "community": 10,
+      "community": 11,
       "norm_label": "connections.ts"
     },
     {
@@ -1674,7 +1737,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L9",
       "id": "connections_isconnected",
-      "community": 10,
+      "community": 11,
       "norm_label": "isconnected()"
     },
     {
@@ -1683,7 +1746,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L29",
       "id": "connections_requireconnection",
-      "community": 10,
+      "community": 11,
       "norm_label": "requireconnection()"
     },
     {
@@ -1692,7 +1755,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L1",
       "id": "lib_crypto_ts",
-      "community": 6,
+      "community": 8,
       "norm_label": "crypto.ts"
     },
     {
@@ -1701,7 +1764,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L2",
       "id": "crypto_generateuserkeypair",
-      "community": 6,
+      "community": 8,
       "norm_label": "generateuserkeypair()"
     },
     {
@@ -1710,7 +1773,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L26",
       "id": "crypto_saveprivatekey",
-      "community": 6,
+      "community": 8,
       "norm_label": "saveprivatekey()"
     },
     {
@@ -1719,7 +1782,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L34",
       "id": "crypto_loadprivatekey",
-      "community": 6,
+      "community": 8,
       "norm_label": "loadprivatekey()"
     },
     {
@@ -1728,7 +1791,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L47",
       "id": "crypto_generateroomkey",
-      "community": 6,
+      "community": 8,
       "norm_label": "generateroomkey()"
     },
     {
@@ -1737,7 +1800,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L73",
       "id": "crypto_wraproomkeyformember",
-      "community": 6,
+      "community": 8,
       "norm_label": "wraproomkeyformember()"
     },
     {
@@ -1746,7 +1809,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L125",
       "id": "crypto_unwraproomkey",
-      "community": 6,
+      "community": 8,
       "norm_label": "unwraproomkey()"
     },
     {
@@ -1755,7 +1818,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L180",
       "id": "crypto_encryptmessage",
-      "community": 6,
+      "community": 8,
       "norm_label": "encryptmessage()"
     },
     {
@@ -1764,7 +1827,7 @@
       "source_file": "lib\\crypto.ts",
       "source_location": "L206",
       "id": "crypto_decryptmessage",
-      "community": 6,
+      "community": 8,
       "norm_label": "decryptmessage()"
     },
     {
@@ -2097,7 +2160,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L1",
       "id": "lib_keydelivery_ts",
-      "community": 8,
+      "community": 2,
       "norm_label": "keydelivery.ts"
     },
     {
@@ -2106,7 +2169,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L50",
       "id": "keydelivery_marksharddelivered",
-      "community": 8,
+      "community": 2,
       "norm_label": "marksharddelivered()"
     },
     {
@@ -2115,7 +2178,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L72",
       "id": "keydelivery_markshardacknowledged",
-      "community": 8,
+      "community": 2,
       "norm_label": "markshardacknowledged()"
     },
     {
@@ -2124,7 +2187,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L93",
       "id": "keydelivery_marksharddecrypted",
-      "community": 8,
+      "community": 2,
       "norm_label": "marksharddecrypted()"
     },
     {
@@ -2133,7 +2196,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L117",
       "id": "keydelivery_getroomkeyhealth",
-      "community": 8,
+      "community": 2,
       "norm_label": "getroomkeyhealth()"
     },
     {
@@ -2142,7 +2205,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L171",
       "id": "keydelivery_detectandalertstaleshards",
-      "community": 8,
+      "community": 2,
       "norm_label": "detectandalertstaleshards()"
     },
     {
@@ -2151,7 +2214,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L227",
       "id": "keydelivery_redelivershard",
-      "community": 8,
+      "community": 2,
       "norm_label": "redelivershard()"
     },
     {
@@ -2160,7 +2223,7 @@
       "source_file": "lib\\keyDelivery.ts",
       "source_location": "L297",
       "id": "keydelivery_pushhealthupdatetoadmins",
-      "community": 8,
+      "community": 2,
       "norm_label": "pushhealthupdatetoadmins()"
     },
     {
@@ -2169,7 +2232,7 @@
       "source_file": "lib\\keyInit.ts",
       "source_location": "L1",
       "id": "lib_keyinit_ts",
-      "community": 6,
+      "community": 8,
       "norm_label": "keyinit.ts"
     },
     {
@@ -2178,7 +2241,7 @@
       "source_file": "lib\\keyInit.ts",
       "source_location": "L24",
       "id": "keyinit_inituserkeys",
-      "community": 6,
+      "community": 8,
       "norm_label": "inituserkeys()"
     },
     {
@@ -2349,7 +2412,7 @@
       "source_file": "lib\\socketClient.ts",
       "source_location": "L1",
       "id": "lib_socketclient_ts",
-      "community": 11,
+      "community": 12,
       "norm_label": "socketclient.ts"
     },
     {
@@ -2358,7 +2421,7 @@
       "source_file": "lib\\socketClient.ts",
       "source_location": "L9",
       "id": "socketclient_getauthpayload",
-      "community": 11,
+      "community": 12,
       "norm_label": "getauthpayload()"
     },
     {
@@ -2367,7 +2430,7 @@
       "source_file": "lib\\socketClient.ts",
       "source_location": "L14",
       "id": "socketclient_getsocket",
-      "community": 11,
+      "community": 12,
       "norm_label": "getsocket()"
     },
     {
@@ -2376,7 +2439,7 @@
       "source_file": "lib\\socketClient.ts",
       "source_location": "L40",
       "id": "socketclient_reconnectsocket",
-      "community": 11,
+      "community": 12,
       "norm_label": "reconnectsocket()"
     },
     {
@@ -2385,7 +2448,7 @@
       "source_file": "lib\\socketClient.ts",
       "source_location": "L48",
       "id": "socketclient_disconnectsocket",
-      "community": 11,
+      "community": 12,
       "norm_label": "disconnectsocket()"
     },
     {
@@ -2412,7 +2475,7 @@
       "source_file": "lib\\socketIO.ts",
       "source_location": "L26",
       "id": "socketio_getio",
-      "community": 8,
+      "community": 2,
       "norm_label": "getio()"
     },
     {
@@ -2421,7 +2484,7 @@
       "source_file": "lib\\socketIO.ts",
       "source_location": "L34",
       "id": "socketio_trygetio",
-      "community": 2,
+      "community": 9,
       "norm_label": "trygetio()"
     },
     {
@@ -2493,7 +2556,7 @@
       "source_file": "lib\\hooks\\useConversations.ts",
       "source_location": "L1",
       "id": "lib_hooks_useconversations_ts",
-      "community": 13,
+      "community": 14,
       "norm_label": "useconversations.ts"
     },
     {
@@ -2502,7 +2565,7 @@
       "source_file": "lib\\hooks\\useConversations.ts",
       "source_location": "L93",
       "id": "useconversations_readunreadcounts",
-      "community": 13,
+      "community": 14,
       "norm_label": "readunreadcounts()"
     },
     {
@@ -2511,7 +2574,7 @@
       "source_file": "lib\\hooks\\useConversations.ts",
       "source_location": "L110",
       "id": "useconversations_writeunreadcounts",
-      "community": 13,
+      "community": 14,
       "norm_label": "writeunreadcounts()"
     },
     {
@@ -2520,7 +2583,7 @@
       "source_file": "lib\\hooks\\useConversations.ts",
       "source_location": "L119",
       "id": "useconversations_formattime",
-      "community": 13,
+      "community": 14,
       "norm_label": "formattime()"
     },
     {
@@ -2529,7 +2592,7 @@
       "source_file": "lib\\hooks\\useConversations.ts",
       "source_location": "L143",
       "id": "useconversations_useconversations",
-      "community": 13,
+      "community": 14,
       "norm_label": "useconversations()"
     },
     {
@@ -3372,7 +3435,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L30",
+      "source_location": "L32",
       "weight": 1.0,
       "_src": "components_ui_chatbubble_tsx",
       "_tgt": "chatbubble_formatsize",
@@ -3384,7 +3447,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L36",
+      "source_location": "L38",
       "weight": 1.0,
       "_src": "components_ui_chatbubble_tsx",
       "_tgt": "chatbubble_attachmenticon",
@@ -3396,12 +3459,132 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L42",
+      "source_location": "L44",
       "weight": 1.0,
       "_src": "components_ui_chatbubble_tsx",
       "_tgt": "chatbubble_renderlinkedcontent",
       "source": "components_ui_chatbubble_tsx",
       "target": "chatbubble_renderlinkedcontent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L96",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_handlepointerdown",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_handlepointerdown",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_handlekeydown",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_handlekeydown",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L121",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_clearlongpresstimer",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_clearlongpresstimer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L127",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_isinteractivetarget",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_isinteractivetarget",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L131",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_handlebubbleclick",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_handlebubbleclick",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L138",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_handlebubblepointerdown",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_handlebubblepointerdown",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L150",
+      "weight": 1.0,
+      "_src": "components_ui_chatbubble_tsx",
+      "_tgt": "chatbubble_runaction",
+      "source": "components_ui_chatbubble_tsx",
+      "target": "chatbubble_runaction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L143",
+      "weight": 1.0,
+      "_src": "chatbubble_handlebubblepointerdown",
+      "_tgt": "chatbubble_clearlongpresstimer",
+      "source": "chatbubble_clearlongpresstimer",
+      "target": "chatbubble_handlebubblepointerdown",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L132",
+      "weight": 1.0,
+      "_src": "chatbubble_handlebubbleclick",
+      "_tgt": "chatbubble_isinteractivetarget",
+      "source": "chatbubble_isinteractivetarget",
+      "target": "chatbubble_handlebubbleclick",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatBubble.tsx",
+      "source_location": "L139",
+      "weight": 1.0,
+      "_src": "chatbubble_handlebubblepointerdown",
+      "_tgt": "chatbubble_isinteractivetarget",
+      "source": "chatbubble_isinteractivetarget",
+      "target": "chatbubble_handlebubblepointerdown",
       "confidence_score": 1.0
     },
     {

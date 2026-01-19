@@ -1,12 +1,12 @@
 # Graph Report - yapper  (2026-05-11)
 
 ## Corpus Check
-- 102 files · ~51,120 words
+- 102 files · ~51,357 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 299 nodes · 302 edges · 12 communities detected
-- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 39 edges (avg confidence: 0.8)
+- 306 nodes · 312 edges · 13 communities detected
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 39 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -19,8 +19,9 @@
 - [[_COMMUNITY_Community 6|Community 6]]
 - [[_COMMUNITY_Community 7|Community 7]]
 - [[_COMMUNITY_Community 8|Community 8]]
-- [[_COMMUNITY_Community 10|Community 10]]
+- [[_COMMUNITY_Community 9|Community 9]]
 - [[_COMMUNITY_Community 11|Community 11]]
+- [[_COMMUNITY_Community 12|Community 12]]
 - [[_COMMUNITY_Community 16|Community 16]]
 
 ## God Nodes (most connected - your core abstractions)
@@ -58,8 +59,8 @@ Cohesion: 0.12
 Nodes (8): base64ToArrayBuffer(), cancelEditingMessage(), handleDeleteMessage(), handleDownloadAttachment(), handleFileSelect(), isSupportedAttachment(), saveDecryptedAttachment(), decryptFile()
 
 ### Community 2 - "Community 2"
-Cohesion: 0.14
-Nodes (12): verifyRedisConnection(), emitRealtimeMessage(), emitRealtimeMessageDelete(), emitRealtimeMessageUpdate(), toFileShape(), toMsgShape(), toUserShape(), checkReadiness() (+4 more)
+Cohesion: 0.15
+Nodes (13): verifyRedisConnection(), detectAndAlertStaleShards(), getRoomKeyHealth(), markShardAcknowledged(), markShardDecrypted(), markShardDelivered(), pushHealthUpdateToAdmins(), redeliverShard() (+5 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.18
@@ -74,22 +75,26 @@ Cohesion: 0.18
 Nodes (5): VideoListPage(), WaitingRoomPage(), Providers(), useSocket(), useToast()
 
 ### Community 6 - "Community 6"
-Cohesion: 0.22
-Nodes (4): generateUserKeyPair(), loadPrivateKey(), savePrivateKey(), initUserKeys()
+Cohesion: 0.24
+Nodes (4): clearLongPressTimer(), handleBubbleClick(), handleBubblePointerDown(), isInteractiveTarget()
 
 ### Community 7 - "Community 7"
 Cohesion: 0.29
 Nodes (7): validateSession(), verifyToken(), deleteSession(), getSession(), legacySessionKey(), sessionKey(), setSession()
 
 ### Community 8 - "Community 8"
-Cohesion: 0.42
-Nodes (8): detectAndAlertStaleShards(), getRoomKeyHealth(), markShardAcknowledged(), markShardDecrypted(), markShardDelivered(), pushHealthUpdateToAdmins(), redeliverShard(), getIO()
+Cohesion: 0.22
+Nodes (4): generateUserKeyPair(), loadPrivateKey(), savePrivateKey(), initUserKeys()
 
-### Community 10 - "Community 10"
+### Community 9 - "Community 9"
+Cohesion: 0.36
+Nodes (7): emitRealtimeMessage(), emitRealtimeMessageDelete(), emitRealtimeMessageUpdate(), toFileShape(), toMsgShape(), toUserShape(), tryGetIO()
+
+### Community 11 - "Community 11"
 Cohesion: 0.29
 Nodes (3): isConnected(), requireConnection(), requireConnectionGuard()
 
-### Community 11 - "Community 11"
+### Community 12 - "Community 12"
 Cohesion: 0.43
 Nodes (5): handleLogout(), disconnectSocket(), getAuthPayload(), getSocket(), reconnectSocket()
 
@@ -105,9 +110,9 @@ Nodes (2): handleGenerate(), normalizeVideoInviteUrl()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `loadRoomKey()` connect `Community 0` to `Community 1`, `Community 3`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Why does `handleSend()` connect `Community 3` to `Community 0`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Why does `decryptMessages()` connect `Community 0` to `Community 1`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
 - **Are the 5 inferred relationships involving `loadRoomKey()` (e.g. with `decryptMessages()` and `handleDownloadAttachment()`) actually correct?**
