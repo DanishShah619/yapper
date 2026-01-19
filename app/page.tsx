@@ -184,7 +184,7 @@ export default function DashboardPage() {
           <div className="dashboard-footer-actions">
             <span className="dashboard-footer-dev">
               <Code2 size={15} />
-              Developer: danish_shanil
+              Developer: danish_shah
             </span>
             <Link href="/contact" className="dashboard-contact-link">
               <Mail size={15} />

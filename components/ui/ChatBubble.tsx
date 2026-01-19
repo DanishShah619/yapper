@@ -85,8 +85,8 @@ export function ChatBubble({
   const canShowActions = !!canModify && !deleted && !isPending && !isFailed;
 
   const bubbleClass = isSent
-    ? `bg-[#FFFDF5] border border-[#D6E8F5] px-4 py-2.5 max-w-[75%] w-fit text-sm font-medium text-[#0A0A0A] ${isConsecutive ? 'rounded-2xl' : 'rounded-2xl rounded-tr-sm'}`
-    : `bg-[#E1F0FF] px-4 py-2.5 max-w-[75%] w-fit text-sm font-medium text-[#0A0A0A] ${isConsecutive ? 'rounded-2xl' : 'rounded-2xl rounded-tl-sm'}`;
+    ? `bg-[#FFFDF5] border border-[#D6E8F5] px-4 py-2.5 max-w-[75%] text-sm font-medium text-[#0A0A0A] ${isConsecutive ? 'rounded-2xl' : 'rounded-2xl rounded-tr-sm'}`
+    : `bg-[#E1F0FF] px-4 py-2.5 max-w-[75%] text-sm font-medium text-[#0A0A0A] ${isConsecutive ? 'rounded-2xl' : 'rounded-2xl rounded-tl-sm'}`;
 
   const wrapperClass = `flex flex-col ${isSent ? 'items-end' : 'items-start'} ${isConsecutive ? 'mb-0.5' : 'mb-3'}`;
 
@@ -158,7 +158,7 @@ export function ChatBubble({
         <span className="text-xs font-semibold text-[#1ABC9C] mb-1 px-1">{senderName}</span>
       )}
 
-      <div ref={actionMenuRef} className={`relative flex ${isSent ? "justify-end" : "justify-start"} max-w-full`}>
+      <div ref={actionMenuRef} className={`relative flex w-full ${isSent ? "justify-end" : "justify-start"}`}>
         <div
           className={`${bubbleClass} ${canShowActions ? "cursor-pointer select-none" : ""}`}
           onClick={handleBubbleClick}
