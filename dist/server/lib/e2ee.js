@@ -138,13 +138,16 @@ async function generateKeyPair() {
  * Both parties independently derive the same key — no key material is transmitted.
  */
 async function deriveRoomKey(myPrivateKeyBase64, theirPublicKeyBase64) {
+    return deriveSharedAesKey(myPrivateKeyBase64, theirPublicKeyBase64, true, ['encrypt', 'decrypt']);
+}
+async function deriveSharedAesKey(myPrivateKeyBase64, theirPublicKeyBase64, extractable, usages) {
     const myPrivJwk = JSON.parse(atob(myPrivateKeyBase64));
     const theirPubJwk = JSON.parse(atob(theirPublicKeyBase64));
     const [myPrivKey, theirPubKey] = await Promise.all([
         crypto.subtle.importKey('jwk', myPrivJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']),
         crypto.subtle.importKey('jwk', theirPubJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, []),
     ]);
-    return crypto.subtle.deriveKey({ name: 'ECDH', public: theirPubKey }, myPrivKey, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    return crypto.subtle.deriveKey({ name: 'ECDH', public: theirPubKey }, myPrivKey, { name: 'AES-GCM', length: 256 }, extractable, usages);
 }
 // ─── Local Storage Helpers ────────────────────────────────────────────────────
 function isClient() {
@@ -198,14 +201,14 @@ async function unwrapGroupKey(wrappedKeyB64, senderPublicKeyB64, myPrivateKeyB64
     const combined = new Uint8Array(Array.from(atob(wrappedKeyB64)).map(c => c.charCodeAt(0)));
     const iv = combined.slice(0, 12);
     const wrapped = combined.slice(12);
-    const sharedSecret = await deriveRoomKey(myPrivateKeyB64, senderPublicKeyB64);
+    const sharedSecret = await deriveSharedAesKey(myPrivateKeyB64, senderPublicKeyB64, false, ['unwrapKey']);
     return crypto.subtle.unwrapKey('raw', wrapped, sharedSecret, { name: 'AES-GCM', iv }, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 /**
  * Wrap a group AES-GCM key to send to a new group member via pairwise ECDH.
  */
 async function wrapGroupKeyForNewMember(groupKey, newMemberPublicKeyB64, myPrivateKeyB64) {
-    const sharedSecret = await deriveRoomKey(myPrivateKeyB64, newMemberPublicKeyB64);
+    const sharedSecret = await deriveSharedAesKey(myPrivateKeyB64, newMemberPublicKeyB64, false, ['wrapKey']);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const wrappedKey = await crypto.subtle.wrapKey('raw', groupKey, sharedSecret, { name: 'AES-GCM', iv });
     const combined = new Uint8Array([...Array.from(iv), ...Array.from(new Uint8Array(wrappedKey))]);

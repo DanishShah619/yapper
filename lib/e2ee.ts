@@ -138,6 +138,15 @@ export async function deriveRoomKey(
   myPrivateKeyBase64: string,
   theirPublicKeyBase64: string
 ): Promise<CryptoKey> {
+  return deriveSharedAesKey(myPrivateKeyBase64, theirPublicKeyBase64, true, ['encrypt', 'decrypt']);
+}
+
+async function deriveSharedAesKey(
+  myPrivateKeyBase64: string,
+  theirPublicKeyBase64: string,
+  extractable: boolean,
+  usages: KeyUsage[]
+): Promise<CryptoKey> {
   const myPrivJwk  = JSON.parse(atob(myPrivateKeyBase64)) as JsonWebKey;
   const theirPubJwk = JSON.parse(atob(theirPublicKeyBase64)) as JsonWebKey;
 
@@ -150,8 +159,8 @@ export async function deriveRoomKey(
     { name: 'ECDH', public: theirPubKey },
     myPrivKey,
     { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
+    extractable,
+    usages
   );
 }
 
@@ -216,7 +225,7 @@ export async function unwrapGroupKey(
   const iv = combined.slice(0, 12);
   const wrapped = combined.slice(12);
 
-  const sharedSecret = await deriveRoomKey(myPrivateKeyB64, senderPublicKeyB64);
+  const sharedSecret = await deriveSharedAesKey(myPrivateKeyB64, senderPublicKeyB64, false, ['unwrapKey']);
 
   return crypto.subtle.unwrapKey(
     'raw',
@@ -237,7 +246,7 @@ export async function wrapGroupKeyForNewMember(
   newMemberPublicKeyB64: string,
   myPrivateKeyB64: string
 ): Promise<string> {
-  const sharedSecret = await deriveRoomKey(myPrivateKeyB64, newMemberPublicKeyB64);
+  const sharedSecret = await deriveSharedAesKey(myPrivateKeyB64, newMemberPublicKeyB64, false, ['wrapKey']);
 
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const wrappedKey = await crypto.subtle.wrapKey(
