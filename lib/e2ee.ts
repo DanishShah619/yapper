@@ -331,10 +331,26 @@ export async function getGroupRoomKey(
   options: { allowInitialize?: boolean } = {}
 ): Promise<{ roomKey: CryptoKey; wrappedKeys: WrappedGroupKey[] }> {
   const cached = await loadRoomKey(groupId);
-  if (cached) return { roomKey: cached, wrappedKeys: [] };
+  const currentMember = members.find((member) => member.user.id === currentUserId);
+
+  if (cached) {
+    if (options.allowInitialize && currentMember?.role === 'ADMIN') {
+      const membersMissingKeys = members.filter((member) => !member.encryptedKey);
+      if (membersMissingKeys.length > 0) {
+        try {
+          const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
+          const wrappedKeys = await wrapGroupKeyForMembers(cached, membersMissingKeys, localPair.privateKey);
+          return { roomKey: cached, wrappedKeys };
+        } catch {
+          return { roomKey: cached, wrappedKeys: [] };
+        }
+      }
+    }
+
+    return { roomKey: cached, wrappedKeys: [] };
+  }
 
   const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
-  const currentMember = members.find((member) => member.user.id === currentUserId);
 
   if (currentMember?.encryptedKey) {
     const candidatePublicKeys = [

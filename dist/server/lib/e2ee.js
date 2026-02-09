@@ -259,10 +259,24 @@ async function wrapGroupKeyForMembers(groupKey, members, myPrivateKey) {
  */
 async function getGroupRoomKey(groupId, members, currentUserId, serverPublicKey, options = {}) {
     const cached = await loadRoomKey(groupId);
-    if (cached)
-        return { roomKey: cached, wrappedKeys: [] };
-    const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
     const currentMember = members.find((member) => member.user.id === currentUserId);
+    if (cached) {
+        if (options.allowInitialize && (currentMember === null || currentMember === void 0 ? void 0 : currentMember.role) === 'ADMIN') {
+            const membersMissingKeys = members.filter((member) => !member.encryptedKey);
+            if (membersMissingKeys.length > 0) {
+                try {
+                    const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
+                    const wrappedKeys = await wrapGroupKeyForMembers(cached, membersMissingKeys, localPair.privateKey);
+                    return { roomKey: cached, wrappedKeys };
+                }
+                catch (_a) {
+                    return { roomKey: cached, wrappedKeys: [] };
+                }
+            }
+        }
+        return { roomKey: cached, wrappedKeys: [] };
+    }
+    const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
     if (currentMember === null || currentMember === void 0 ? void 0 : currentMember.encryptedKey) {
         const candidatePublicKeys = [
             ...members.filter((member) => member.role === 'ADMIN').map((member) => member.user.publicKey),
@@ -275,7 +289,7 @@ async function getGroupRoomKey(groupId, members, currentUserId, serverPublicKey,
                 await storeRoomKey(groupId, unwrapped);
                 return { roomKey: unwrapped, wrappedKeys: [] };
             }
-            catch (_a) {
+            catch (_b) {
                 // The schema does not identify the wrapping sender; try the next key.
             }
         }

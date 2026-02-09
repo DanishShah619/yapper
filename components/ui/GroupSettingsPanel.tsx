@@ -17,12 +17,12 @@ const LEAVE_GROUP = gql`mutation LeaveGroup($groupId: ID!) { leaveGroup(groupId:
 const DELETE_GROUP = gql`mutation DeleteGroup($groupId: ID!) { deleteGroup(groupId: $groupId) }`;
 const GET_CONNECTIONS = gql`
   query GetConnectionsForGroupAdd {
-    connections { id username avatarUrl }
+    connections { id username avatarUrl publicKey }
   }
 `;
 const ADD_GROUP_MEMBER = gql`
-  mutation AddGroupMember($groupId: ID!, $username: String!) {
-    addGroupMember(groupId: $groupId, username: $username) {
+  mutation AddGroupMember($groupId: ID!, $username: String!, $encryptedKey: String) {
+    addGroupMember(groupId: $groupId, username: $username, encryptedKey: $encryptedKey) {
       id
       user { id username avatarUrl publicKey }
       role
@@ -46,6 +46,7 @@ type ConnectionNode = {
   id: string;
   username: string;
   avatarUrl: string | null;
+  publicKey: string | null;
 };
 
 type GroupMemberNode = {
@@ -86,6 +87,7 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserP
   const { showToast } = useToast();
   const [addUsername, setAddUsername] = useState('');
   const [memberSearchFocused, setMemberSearchFocused] = useState(false);
+  const [deliveringKey, setDeliveringKey] = useState(false);
   const { data: connectionsData } = useQuery<{ connections: ConnectionNode[] }>(GET_CONNECTIONS, {
     skip: !isAdmin || !open,
   });
@@ -111,45 +113,8 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserP
   });
   const [submitGroupKeys] = useMutation(SUBMIT_GROUP_KEYS);
   const [addGroupMember, { loading: addingMember }] = useMutation<AddGroupMemberData>(ADD_GROUP_MEMBER, {
-    onCompleted: async (data) => {
+    onCompleted: () => {
       setAddUsername('');
-      const newMember = data.addGroupMember;
-
-      if (currentUserId && newMember.user.publicKey) {
-        try {
-          const { roomKey, wrappedKeys } = await getGroupRoomKey(
-            group.id,
-            group.members ?? [],
-            currentUserId,
-            currentUserPublicKey,
-            { allowInitialize: true }
-          );
-          const { privateKey } = await getAccountKeyPair(currentUserId, currentUserPublicKey);
-          const newMemberWrappedKey = await wrapGroupKeyForNewMember(
-            roomKey,
-            newMember.user.publicKey,
-            privateKey
-          );
-
-          await submitGroupKeys({
-            variables: {
-              groupId: group.id,
-              wrappedKeys: [
-                ...wrappedKeys,
-                { memberId: newMember.user.id, encryptedKey: newMemberWrappedKey },
-              ],
-            },
-          });
-        } catch (error: unknown) {
-          showToast(
-            error instanceof Error
-              ? error.message
-              : 'Member added, but the group key could not be delivered.',
-            'error'
-          );
-        }
-      }
-
       onRefresh();
       showToast('Member added', 'success');
     },
@@ -194,10 +159,54 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserP
       .map(({ connection }) => connection);
   }, [addUsername, connectionsData?.connections, existingMemberIds]);
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     const username = addUsername.trim();
     if (!username) return;
-    addGroupMember({ variables: { groupId: group.id, username } });
+
+    const selectedConnection = (connectionsData?.connections ?? []).find(
+      (connection) => connection.username.toLowerCase() === username.toLowerCase()
+    );
+
+    if (!currentUserId) {
+      showToast('Your session is still loading. Try again in a moment.', 'error');
+      return;
+    }
+
+    if (!selectedConnection?.publicKey) {
+      showToast('This member has not set up encryption yet, so the group key cannot be delivered.', 'error');
+      return;
+    }
+
+    setDeliveringKey(true);
+    try {
+      const { roomKey, wrappedKeys } = await getGroupRoomKey(
+        group.id,
+        group.members ?? [],
+        currentUserId,
+        currentUserPublicKey,
+        { allowInitialize: true }
+      );
+
+      if (wrappedKeys.length > 0) {
+        await submitGroupKeys({ variables: { groupId: group.id, wrappedKeys } });
+      }
+
+      const { privateKey } = await getAccountKeyPair(currentUserId, currentUserPublicKey);
+      const encryptedKey = await wrapGroupKeyForNewMember(
+        roomKey,
+        selectedConnection.publicKey,
+        privateKey
+      );
+
+      await addGroupMember({ variables: { groupId: group.id, username, encryptedKey } });
+    } catch (error: unknown) {
+      showToast(
+        error instanceof Error ? error.message : 'Member could not be added with a delivered group key.',
+        'error'
+      );
+    } finally {
+      setDeliveringKey(false);
+    }
   };
 
   return (
@@ -260,7 +269,7 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserP
                             handleAddMember();
                           }
                         }}
-                        disabled={addingMember}
+                        disabled={addingMember || deliveringKey}
                       />
                       {memberSearchFocused && availableConnections.length > 0 && (
                         <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#D6E8F5] bg-white shadow-xl z-50">
@@ -286,7 +295,7 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserP
                     <button
                       className="rounded-lg bg-[#1ABC9C] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#17a589] disabled:opacity-50"
                       onClick={handleAddMember}
-                      disabled={addingMember || addUsername.trim().length === 0}
+                      disabled={addingMember || deliveringKey || addUsername.trim().length === 0}
                     >
                       Add
                     </button>

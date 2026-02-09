@@ -97,7 +97,7 @@ export const groupResolvers = {
     // ─── 5.2: Member Management ──────────────────────────────────────
     addGroupMember: async (
       _parent: unknown,
-      args: { groupId: string; username: string },
+      args: { groupId: string; username: string; encryptedKey?: string | null },
       ctx: GraphQLContext
     ) => {
       if (!ctx.userId) throw new Error('Not authenticated');
@@ -130,7 +130,12 @@ export const groupResolvers = {
       if (existing) throw new Error('User is already a member of this group');
 
       const member = await ctx.prisma.groupMember.create({
-        data: { groupId: args.groupId, userId: invitee.id, role: 'MEMBER' },
+        data: {
+          groupId: args.groupId,
+          userId: invitee.id,
+          role: 'MEMBER',
+          encryptedKey: args.encryptedKey ?? null,
+        },
         include: { user: true },
       });
 

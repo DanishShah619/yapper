@@ -252,7 +252,7 @@ export const typeDefs = `#graphql
     deleteMessage(id: ID!): Message!
     uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
     createGroup(name: String!, type: RoomType!, avatar: String): Group!
-    addGroupMember(groupId: ID!, username: String!): GroupMember!
+    addGroupMember(groupId: ID!, username: String!, encryptedKey: String): GroupMember!
     removeGroupMember(groupId: ID!, userId: ID!): Boolean!
     promoteGroupMember(groupId: ID!, userId: ID!): GroupMember!
     transferGroupOwnership(groupId: ID!, userId: ID!): Group!
