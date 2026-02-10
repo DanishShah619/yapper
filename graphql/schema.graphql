@@ -138,6 +138,7 @@ type GroupMember {
 type VideoRoom {
   id: ID!
   liveKitRoomId: String
+  createdBy: ID!
   locked: Boolean!
   maxParticipants: Int!
   createdAt: DateTime!
@@ -304,6 +305,7 @@ type Mutation {
 
   # Video
   createVideoRoom(maxParticipants: Int): VideoRoom!
+  createConversationVideoCall(conversationId: ID!): VideoRoom!
   approveParticipant(roomId: ID!, participantId: ID!): Boolean!
   rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
   lockVideoRoom(roomId: ID!): VideoRoom!

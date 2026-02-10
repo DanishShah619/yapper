@@ -1,11 +1,11 @@
 # Graph Report - yapper  (2026-05-04)
 
 ## Corpus Check
-- 93 files · ~45,077 words
+- 96 files · ~46,390 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 253 nodes · 232 edges · 12 communities detected
+- 263 nodes · 239 edges · 12 communities detected
 - Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 28 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -21,7 +21,7 @@
 - [[_COMMUNITY_Community 8|Community 8]]
 - [[_COMMUNITY_Community 9|Community 9]]
 - [[_COMMUNITY_Community 10|Community 10]]
-- [[_COMMUNITY_Community 15|Community 15]]
+- [[_COMMUNITY_Community 16|Community 16]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `loadRoomKey()` - 8 edges
@@ -50,7 +50,7 @@
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.12
+Cohesion: 0.11
 Nodes (10): base64ToArrayBuffer(), cancelEditingMessage(), handleDeleteMessage(), handleDownloadAttachment(), handleFileSelect(), handleUpdateMessage(), isSupportedAttachment(), saveDecryptedAttachment() (+2 more)
 
 ### Community 1 - "Community 1"
@@ -93,21 +93,21 @@ Nodes (5): handleLogout(), disconnectSocket(), getAuthPayload(), getSocket(), re
 Cohesion: 0.4
 Nodes (3): register(), runDetection(), startStaleShardDetector()
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
 Cohesion: 0.67
 Nodes (1): handleSubmit()
 
 ## Knowledge Gaps
-- **Thin community `Community 15`** (3 nodes): `page.tsx`, `page.tsx`, `handleSubmit()`
+- **Thin community `Community 16`** (3 nodes): `page.tsx`, `page.tsx`, `handleSubmit()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `encryptMessage()` connect `Community 0` to `Community 1`, `Community 3`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `handleSend()` connect `Community 3` to `Community 0`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
+- **Why does `handleSend()` connect `Community 3` to `Community 0`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Why does `handleUpdateMessage()` connect `Community 0` to `Community 1`?**
   _High betweenness centrality (0.010) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `loadRoomKey()` (e.g. with `decryptMessages()` and `handleDownloadAttachment()`) actually correct?**
@@ -115,4 +115,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 2 inferred relationships involving `handleDownloadAttachment()` (e.g. with `loadRoomKey()` and `decryptFile()`) actually correct?**
   _`handleDownloadAttachment()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11 - nodes in this community are weakly interconnected._

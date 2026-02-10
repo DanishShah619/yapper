@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socketClient";
 import debounce from "lodash.debounce";
 import { gql } from "@apollo/client";
+import { useMutation } from "@apollo/client/react";
 import client from "@/lib/apollo-client";
 import {
   decryptFile,
@@ -80,6 +81,15 @@ const DELETE_MESSAGE_MUTATION = gql`
   }
 `;
 
+const CREATE_CONVERSATION_VIDEO_CALL = gql`
+  mutation CreateConversationVideoCall($conversationId: ID!) {
+    createConversationVideoCall(conversationId: $conversationId) {
+      id
+      liveKitRoomId
+    }
+  }
+`;
+
 // Define the shape of a message ready for UI rendering
 type DecryptedMessage = {
   id: string;
@@ -114,6 +124,13 @@ type MessageMutationData = {
     id: string;
     editedAt: string | null;
     deletedAt: string | null;
+  };
+};
+
+type CreateConversationVideoCallData = {
+  createConversationVideoCall: {
+    id: string;
+    liveKitRoomId: string | null;
   };
 };
 
@@ -234,6 +251,10 @@ export function ChatPanel({
 
   const { messages, loading, fetchMore, canLoadMore } = useChatMessages(conversationId);
   const { sendMessage, loading: sendLoading } = useSendMessage();
+  const [createConversationVideoCall, { loading: callLoading }] = useMutation<
+    CreateConversationVideoCallData,
+    { conversationId: string }
+  >(CREATE_CONVERSATION_VIDEO_CALL);
 
   // Sync hook messages to local state for optimistic updates
   useEffect(() => {
@@ -566,6 +587,22 @@ export function ChatPanel({
     }
   }
 
+  async function handleStartVideoCall() {
+    try {
+      const { data } = await createConversationVideoCall({
+        variables: { conversationId },
+      });
+
+      const videoRoomId = data?.createConversationVideoCall.id;
+      if (!videoRoomId) throw new Error("Could not create video call");
+
+      router.push(`/video/${videoRoomId}/room?returnTo=${encodeURIComponent(`/chat?room=${conversationId}`)}`);
+    } catch (error) {
+      console.error(error);
+      setAttachmentError(error instanceof Error ? error.message : "Could not start video call.");
+    }
+  }
+
   async function handleSend() {
     if (!inputText.trim() && !selectedFile) return;
     if (selectedFile && ephemeral) {
@@ -680,7 +717,12 @@ export function ChatPanel({
           <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" title="Search in chat">
             <Search size={18} />
           </button>
-          <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" title="Video call" onClick={() => router.push('/video')}>
+          <button
+            className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150 disabled:opacity-50"
+            title="Video call"
+            onClick={handleStartVideoCall}
+            disabled={callLoading || headerLoading || conversationMembers.length === 0}
+          >
             <Video size={18} />
           </button>
           <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" title="More">

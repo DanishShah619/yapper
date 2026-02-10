@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { GraphQLContext } from '@/graphql/context';
 import { RedisKeys } from '@/lib/redisKeys';
 import { generateLiveKitToken } from '@/lib/livekit';
+import { tryGetIO } from '@/lib/socketIO';
 
 export const videoResolvers = {
   Query: {
@@ -64,6 +65,66 @@ export const videoResolvers = {
         where: { id: room.id },
         data: { liveKitRoomId: randomUUID() },
       });
+
+      return updated;
+    },
+
+    createConversationVideoCall: async (
+      _parent: unknown,
+      args: { conversationId: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const room = await ctx.prisma.room.findUnique({
+        where: { id: args.conversationId },
+        include: { members: { include: { user: true } } },
+      });
+
+      const group = room
+        ? null
+        : await ctx.prisma.group.findUnique({
+            where: { id: args.conversationId },
+            include: { members: { include: { user: true } } },
+          });
+
+      const members = room?.members ?? group?.members ?? [];
+      if (members.length === 0) throw new Error('Conversation not found');
+
+      const callerMember = members.find((member) => member.userId === ctx.userId);
+      if (!callerMember) throw new Error('Not a member of this conversation');
+
+      const caller = callerMember.user;
+      const videoRoom = await ctx.prisma.videoRoom.create({
+        data: {
+          createdBy: ctx.userId,
+          maxParticipants: Math.max(2, Math.min(members.length, 4)),
+          locked: false,
+        },
+      });
+
+      const updated = await ctx.prisma.videoRoom.update({
+        where: { id: videoRoom.id },
+        data: { liveKitRoomId: randomUUID() },
+      });
+
+      const io = tryGetIO();
+      if (io) {
+        for (const member of members) {
+          if (member.userId === ctx.userId) continue;
+
+          io.to(`user:${member.userId}`).emit('call:incoming', {
+            videoRoomId: updated.id,
+            liveKitRoomId: updated.liveKitRoomId,
+            conversationId: args.conversationId,
+            caller: {
+              id: caller.id,
+              username: caller.username,
+              avatarUrl: caller.avatarUrl,
+            },
+          });
+        }
+      }
 
       return updated;
     },

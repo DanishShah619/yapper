@@ -7,6 +7,7 @@ import { useCallback, useEffect, createContext, useContext, useState } from 'rea
 import { Socket } from 'socket.io-client';
 import { ToastContainer, useToast } from '@/components/ui/Toast';
 import { getSocket, reconnectSocket } from '@/lib/socketClient';
+import { useRouter } from 'next/navigation';
 
 const SocketContext = createContext<{ socket: Socket | null }>({ socket: null });
 
@@ -21,6 +22,17 @@ const UPDATE_PUBLIC_KEY = gql`
   }
 `;
 
+type IncomingCall = {
+  videoRoomId: string;
+  liveKitRoomId: string | null;
+  conversationId: string;
+  caller: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+};
+
 /**
  * KeyInitialiser — published the user's ECDH public key to the server on every
  * session start. The private key stays in localStorage and never leaves the device.
@@ -29,6 +41,9 @@ const UPDATE_PUBLIC_KEY = gql`
 function KeyInitialiser() {
   const [updatePublicKey] = useMutation(UPDATE_PUBLIC_KEY, {
     client,
+    onCompleted: () => {
+      reconnectSocket();
+    },
     onError: () => {
       // Silently fail — user isn't logged in yet or token is invalid
     },
@@ -58,7 +73,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [socket] = useState<Socket | null>(() =>
     typeof window === 'undefined' ? null : getSocket({ connect: false })
   );
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const { toasts, dismissToast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (!socket) return;
@@ -85,11 +102,54 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('nexchat:auth-changed', connectAfterAuthChange);
   }, [socket]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingCall = (call: IncomingCall) => {
+      setIncomingCall(call);
+    };
+
+    socket.on('call:incoming', handleIncomingCall);
+    return () => {
+      socket.off('call:incoming', handleIncomingCall);
+    };
+  }, [socket]);
+
+  const joinIncomingCall = () => {
+    if (!incomingCall) return;
+    const returnTo = `/chat?room=${incomingCall.conversationId}`;
+    router.push(`/video/${incomingCall.videoRoomId}/room?returnTo=${encodeURIComponent(returnTo)}`);
+    setIncomingCall(null);
+  };
+
   return (
     <ApolloProvider client={client}>
       <SocketContext.Provider value={{ socket }}>
         <KeyInitialiser />
         {children}
+        {incomingCall && (
+          <div className="fixed bottom-5 left-5 z-50 w-[min(360px,calc(100vw-2.5rem))] rounded-xl border border-[#BAD9F5] bg-white p-4 shadow-lg">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#1ABC9C]">Incoming video call</p>
+            <p className="mt-1 text-sm font-bold text-[#0A0A0A]">{incomingCall.caller.username}</p>
+            <p className="mt-0.5 text-xs font-medium text-[#6B7A99]">wants to start a video call</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={joinIncomingCall}
+                className="rounded-lg bg-[#1ABC9C] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#17a589]"
+              >
+                Join
+              </button>
+              <button
+                type="button"
+                onClick={() => setIncomingCall(null)}
+                className="rounded-lg bg-[#E1F0FF] px-3 py-2 text-xs font-bold text-[#1A3A6B] transition-colors hover:bg-[#BAD9F5]"
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        )}
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </SocketContext.Provider>
     </ApolloProvider>

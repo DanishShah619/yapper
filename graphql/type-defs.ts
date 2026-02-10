@@ -182,6 +182,7 @@ export const typeDefs = `#graphql
   type VideoRoom {
     id: ID!
     liveKitRoomId: String
+    createdBy: ID!
     locked: Boolean!
     maxParticipants: Int!
     createdAt: DateTime!
@@ -262,6 +263,7 @@ export const typeDefs = `#graphql
     leaveGroup(groupId: ID!): Boolean!
     updateMemberAddPolicy(groupId: ID!, policy: MemberAddPolicy!): Group!
     createVideoRoom(maxParticipants: Int): VideoRoom!
+    createConversationVideoCall(conversationId: ID!): VideoRoom!
     approveParticipant(roomId: ID!, participantId: ID!): Boolean!
     rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
     lockVideoRoom(roomId: ID!): VideoRoom!

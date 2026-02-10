@@ -17,6 +17,7 @@ export function getSocket(options: GetSocketOptions = {}): Socket {
   if (!socket) {
     socket = io({
       path: "/socket.io",
+      transports: ["websocket"],
       autoConnect: false,
       withCredentials: true,
       reconnection: true,

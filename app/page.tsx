@@ -5,6 +5,7 @@ import { useQuery, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { disconnectSocket } from '@/lib/socketClient';
+import { Component as EtherealShadow } from '@/components/ui/etheral-shadow';
 
 const ME_QUERY = gql`
   query Me {
@@ -52,28 +53,16 @@ export default function DashboardPage() {
 
   if (loading || (!data && !error)) {
     return (
-      <div className="dashboard-loading">
-        <div className="dashboard-spinner" />
-        <style jsx>{`
-          .dashboard-loading {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #0a0a0f;
-          }
-          .dashboard-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid rgba(99, 102, 241, 0.2);
-            border-top: 3px solid #6366f1;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f' }}>
+        <div style={{
+          width: 32,
+          height: 32,
+          border: '3px solid rgba(99, 102, 241, 0.2)',
+          borderTop: '3px solid #6366f1',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -85,8 +74,20 @@ export default function DashboardPage() {
   const user = data?.me;
 
   return (
-    <>
-      <div className="dashboard">
+    <div className="dashboard">
+      {/* ── Ethereal shadow background — fixed, behind everything ── */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+        <EtherealShadow
+          color="rgba(99, 102, 241, 0.35)"
+          animation={{ scale: 80, speed: 60 }}
+          noise={{ opacity: 0.6, scale: 1.2 }}
+          sizing="fill"
+          style={{ width: '100%', height: '100%', background: '#0a0a0f' }}
+        />
+      </div>
+
+      {/* ── All dashboard content sits above the background ── */}
+      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', color: '#f0f0f5' }}>
         <nav className="dashboard-nav">
           <div className="dashboard-nav-brand">
             <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
@@ -154,21 +155,16 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      <style jsx>{`
-        .dashboard {
-          min-height: 100vh;
-          background: #0a0a0f;
-          color: #f0f0f5;
-        }
-
+      <style>{`
         .dashboard-nav {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 16px 24px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(10, 10, 15, 0.9);
-          backdrop-filter: blur(10px);
+          background: rgba(10, 10, 15, 0.75);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
           position: sticky;
           top: 0;
           z-index: 50;
@@ -259,11 +255,13 @@ export default function DashboardPage() {
         }
 
         .dashboard-card {
-          background: rgba(17, 17, 27, 0.6);
+          background: rgba(17, 17, 27, 0.55);
           border: 1px solid rgba(255, 255, 255, 0.06);
           border-radius: 14px;
           padding: 24px;
           transition: all 0.2s ease;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
         }
 
         .dashboard-card:hover {
@@ -295,6 +293,6 @@ export default function DashboardPage() {
           margin: 0;
         }
       `}</style>
-    </>
+    </div>
   );
 }

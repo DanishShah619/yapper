@@ -7,6 +7,13 @@ import { ConversationItem } from "./ConversationItem";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { useToast } from "./Toast";
+import { useRouter } from "next/navigation";
+
+type ConnectionNode = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+};
 
 const GET_CONNECTIONS = gql`
   query GetConnections {
@@ -32,12 +39,13 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ activeConversationId, onSelectConversation }: ChatSidebarProps) {
-  const { conversations, loading, error } = useConversations();
+  const { conversations, loading, markConversationRead } = useConversations(activeConversationId);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const { showToast } = useToast();
+  const router = useRouter();
 
-  const { data: connData, loading: connLoading } = useQuery<{ connections: any[] }>(GET_CONNECTIONS, {
+  const { data: connData, loading: connLoading } = useQuery<{ connections: ConnectionNode[] }>(GET_CONNECTIONS, {
     skip: activeTab !== "Connections",
   });
 
@@ -59,12 +67,9 @@ export function ChatSidebar({ activeConversationId, onSelectConversation }: Chat
       if (activeTab === "Groups") return c.isGroup;
       return true; // "All"
     })
-    .sort((a, b) => {
-      return 0;
-    });
 
   const connections = connData?.connections || [];
-  const filteredConnections = connections.filter((c: any) => {
+  const filteredConnections = connections.filter((c) => {
     if (searchQuery) return c.username.toLowerCase().includes(searchQuery.toLowerCase());
     return true;
   });
@@ -73,6 +78,17 @@ export function ChatSidebar({ activeConversationId, onSelectConversation }: Chat
 
   const handleConnectionClick = (username: string) => {
     createDM({ variables: { username } });
+  };
+
+  const handleConversationClick = (id: string, isGroup: boolean) => {
+    markConversationRead(id);
+
+    if (isGroup) {
+      router.push(`/groups/${id}`);
+      return;
+    }
+
+    onSelectConversation(id);
   };
 
   return (
@@ -163,7 +179,7 @@ export function ChatSidebar({ activeConversationId, onSelectConversation }: Chat
               {...convo}
               lastMessage={convo.lastMessagePreview}
               isActive={convo.id === activeConversationId}
-              onClick={() => onSelectConversation(convo.id)}
+              onClick={() => handleConversationClick(convo.id, convo.isGroup)}
             />
           ))}
 
@@ -180,7 +196,7 @@ export function ChatSidebar({ activeConversationId, onSelectConversation }: Chat
 
         {/* Connections List */}
         {!connLoading && activeTab === "Connections" &&
-          filteredConnections.map((conn: any) => (
+          filteredConnections.map((conn) => (
             <ConversationItem
               key={conn.id}
               id={conn.id}

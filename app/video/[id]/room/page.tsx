@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { LiveKitRoom, VideoConference, useLocalParticipant } from '@livekit/components-react';
@@ -132,6 +132,7 @@ function RoomControls({
 export default function VideoRoomPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
 
   const [waitingPanelOpen, setWaitingPanelOpen] = useState(false);
@@ -181,7 +182,7 @@ export default function VideoRoomPage() {
   };
 
   const handleDisconnect = () => {
-    router.push('/video');
+    router.push(searchParams.get('returnTo') ?? '/video');
   };
 
   return (
@@ -252,7 +253,7 @@ export default function VideoRoomPage() {
               waitingCount={waitingCount}
               onToggleWaitingPanel={() => setWaitingPanelOpen(!waitingPanelOpen)}
               onToggleLock={() => lockVideoRoom({ variables: { roomId: id } })}
-              onDisconnect={() => router.push('/video')}
+              onDisconnect={handleDisconnect}
             />
           </LiveKitRoom>
         ) : (
