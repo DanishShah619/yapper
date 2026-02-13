@@ -6,6 +6,8 @@ import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { disconnectSocket } from '@/lib/socketClient';
 import { Component as EtherealShadow } from '@/components/ui/etheral-shadow';
+import { GlowingCard } from '@/components/ui/glowing-card';
+import { MessageSquare, Users, Home, Video } from 'lucide-react';
 
 const ME_QUERY = gql`
   query Me {
@@ -129,27 +131,39 @@ export default function DashboardPage() {
               Your secure messaging platform is ready. Features are being built across multiple phases.
             </p>
 
-            <div className="dashboard-cards">
-              <a href="/chat" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(99, 102, 241, 0.3)', background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06))' }}>
-                <div className="dashboard-card-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }}>💬</div>
-                <h3 style={{ color: '#818cf8' }}>Messages <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
-                <p>E2E encrypted DMs — Phase 3 is here. Click to open.</p>
-              </a>
-              <a href="/connections" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(99, 102, 241, 0.3)', background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06))' }}>
-                <div className="dashboard-card-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>👥</div>
-                <h3 style={{ color: '#818cf8' }}>Connections <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
-                <p>Find friends, send and accept connection requests. Click to open.</p>
-              </a>
-              <a href="/groups" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(26, 188, 156, 0.3)', background: 'linear-gradient(135deg, rgba(26,188,156,0.08), rgba(37,99,235,0.06))' }}>
-                <div className="dashboard-card-icon" style={{ background: 'rgba(26, 188, 156, 0.15)', color: '#1ABC9C' }}>🏠</div>
-                <h3 style={{ color: '#1ABC9C' }}>Groups <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(26,188,156,0.15)', color: '#1ABC9C', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
-                <p>Encrypted group chats — Phase 5 is here. Click to open.</p>
-              </a>
-              <a href="/video" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(139, 92, 246, 0.3)', background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(192,132,252,0.06))' }}>
-                <div className="dashboard-card-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa' }}>📹</div>
-                <h3 style={{ color: '#a78bfa' }}>Video Calls <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(139,92,246,0.15)', color: '#a78bfa', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
-                <p>LiveKit SFU calls — Phase 4 is here. Click to open.</p>
-              </a>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              <GlowingCard 
+                href="/chat"
+                title="Messages"
+                badge="LIVE"
+                dotColor="#818cf8"
+                icon={<MessageSquare size={22} />}
+                description="E2E encrypted DMs — Phase 3 is here. Click to open."
+              />
+              <GlowingCard 
+                href="/connections"
+                title="Connections"
+                badge="LIVE"
+                dotColor="#60a5fa"
+                icon={<Users size={22} />}
+                description="Find friends, send and accept connection requests. Click to open."
+              />
+              <GlowingCard 
+                href="/groups"
+                title="Groups"
+                badge="LIVE"
+                dotColor="#34d399"
+                icon={<Home size={22} />}
+                description="Encrypted group chats — Phase 5 is here. Click to open."
+              />
+              <GlowingCard 
+                href="/video"
+                title="Video Calls"
+                badge="LIVE"
+                dotColor="#c084fc"
+                icon={<Video size={22} />}
+                description="LiveKit SFU calls — Phase 4 is here. Click to open."
+              />
             </div>
           </div>
         </main>
