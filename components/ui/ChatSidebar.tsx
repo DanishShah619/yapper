@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, SquarePen, MoreVertical, MessageSquare, Users } from "lucide-react";
+import { ArrowLeft, Search, SquarePen, MoreVertical, MessageSquare, Users } from "lucide-react";
 import { useConversations } from "@/lib/hooks/useConversations";
 import { ConversationItem } from "./ConversationItem";
 import { useQuery, useMutation } from "@apollo/client/react";
@@ -95,7 +95,18 @@ export function ChatSidebar({ activeConversationId, onSelectConversation }: Chat
     <aside className="w-80 h-full bg-[#F5F9FF] border-r border-[#D6E8F5] flex flex-col shrink-0">
       <div className="px-4 pt-4 pb-3 border-b border-[#D6E8F5]">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-bold text-[#0A0A0A]">NexChat</h1>
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="rounded-lg p-2 text-[#6B7A99] transition-colors duration-150 hover:bg-[#E1F0FF] hover:text-[#0A0A0A]"
+              title="Back"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="truncate text-lg font-bold text-[#0A0A0A]">NexChat</h1>
+          </div>
           <div className="flex items-center gap-1">
             <button 
               className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" 

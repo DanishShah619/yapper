@@ -77,6 +77,7 @@ export default function GroupsPage() {
         <PageHeader 
           title="Groups" 
           subtitle={`${groups.length} groups`} 
+          backHref="/"
           action={
             <button 
               className="bg-[#1ABC9C] hover:bg-[#17a589] text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors duration-150"

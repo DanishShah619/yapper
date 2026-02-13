@@ -39,12 +39,23 @@ const REMOVE_CONNECTION = gql`
 
 type TabType = 'connections' | 'requests';
 
+type ConnectionUser = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
+type ConnectionRequest = {
+  id: string;
+  requester: ConnectionUser;
+};
+
 export default function ConnectionsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('connections');
   const { showToast } = useToast();
 
-  const { data: connData, loading: connLoading, error: connError, refetch: refetchConn } = useQuery<{ connections: any[] }>(GET_CONNECTIONS);
-  const { data: reqData, loading: reqLoading, error: reqError, refetch: refetchReq } = useQuery<{ connectionRequests: any[] }>(GET_CONNECTION_REQUESTS);
+  const { data: connData, loading: connLoading, error: connError, refetch: refetchConn } = useQuery<{ connections: ConnectionUser[] }>(GET_CONNECTIONS);
+  const { data: reqData, loading: reqLoading, error: reqError, refetch: refetchReq } = useQuery<{ connectionRequests: ConnectionRequest[] }>(GET_CONNECTION_REQUESTS);
 
   const [respondRequest] = useMutation(RESPOND_TO_CONNECTION_REQUEST, {
     onCompleted: () => {
@@ -65,7 +76,7 @@ export default function ConnectionsPage() {
   const connections = connData?.connections || [];
   const requests = reqData?.connectionRequests || [];
 
-  const presenceMap = usePresence(connections.map((c: any) => c.id));
+  const presenceMap = usePresence(connections.map((c) => c.id));
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<{ id: string; username: string } | null>(null);
@@ -75,7 +86,7 @@ export default function ConnectionsPage() {
     showToast(accept ? "Request accepted" : "Request declined", "success");
   };
 
-  const handleRemoveClick = (user: any) => {
+  const handleRemoveClick = (user: ConnectionUser) => {
     setUserToRemove({ id: user.id, username: user.username });
     setConfirmOpen(true);
   };
@@ -118,6 +129,7 @@ export default function ConnectionsPage() {
         <PageHeader 
           title="Connections" 
           subtitle={`${connections.length} connections`} 
+          backHref="/"
           action={<Link href="/search" className="bg-[#1ABC9C] hover:bg-[#17a589] text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors duration-150">+ Find People</Link>}
         />
 
@@ -149,7 +161,7 @@ export default function ConnectionsPage() {
               />
             ) : (
               <div className="space-y-3">
-                {connections.map((c: any) => {
+                {connections.map((c) => {
                   const isOnline = presenceMap.get(c.id) ?? false;
                   return (
                     <div key={c.id} className="bg-white rounded-2xl border border-[#D6E8F5] p-4 shadow-sm shadow-blue-100/50 flex items-center gap-3">
@@ -191,7 +203,7 @@ export default function ConnectionsPage() {
               />
             ) : (
               <div className="space-y-3">
-                {requests.map((r: any) => (
+                {requests.map((r) => (
                   <div key={r.id} className="bg-white rounded-2xl border border-[#D6E8F5] p-4 shadow-sm shadow-blue-100/50 flex items-center gap-3">
                     <Avatar src={r.requester.avatarUrl} name={r.requester.username} size="md" />
                     <div className="flex-1">
