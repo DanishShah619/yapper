@@ -241,6 +241,8 @@ export function ChatPanel({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
   
   const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
 
@@ -686,6 +688,13 @@ export function ChatPanel({
     return "Expires soon";
   };
 
+  const displayedMessages = chatSearchQuery
+    ? decryptedMessages.filter(msg => 
+        !msg.deletedAt && 
+        msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase())
+      )
+    : decryptedMessages;
+
   return (
     <div className="flex flex-col h-full bg-[#F0F8FF] relative">
       <div className="bg-white border-b border-[#D6E8F5] px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm shadow-blue-50/50">
@@ -714,7 +723,14 @@ export function ChatPanel({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" title="Search in chat">
+          <button 
+            className={`hover:bg-[#E1F0FF] ${isSearchOpen ? 'bg-[#E1F0FF] text-[#0A0A0A]' : 'text-[#6B7A99]'} hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150`} 
+            title="Search in chat"
+            onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) setChatSearchQuery("");
+            }}
+          >
             <Search size={18} />
           </button>
           <button
@@ -730,6 +746,39 @@ export function ChatPanel({
           </button>
         </div>
       </div>
+
+      {isSearchOpen && (
+        <div className="bg-[#F5F9FF] border-b border-[#D6E8F5] px-4 py-2 flex items-center shrink-0">
+          <div className="relative w-full">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7A99]" />
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search in conversation..."
+              value={chatSearchQuery}
+              onChange={(e) => setChatSearchQuery(e.target.value)}
+              className="bg-white border border-[#D6E8F5] rounded-xl pl-9 pr-9 py-1.5 text-sm font-medium text-[#0A0A0A] placeholder:text-[#6B7A99] focus:outline-none focus:border-[#BAD9F5] focus:ring-2 focus:ring-[#E1F0FF] w-full"
+            />
+            {chatSearchQuery && (
+              <button 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7A99] hover:text-[#0A0A0A]"
+                onClick={() => setChatSearchQuery("")}
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <button 
+            className="ml-3 text-sm font-medium text-[#6B7A99] hover:text-[#0A0A0A]"
+            onClick={() => {
+              setIsSearchOpen(false);
+              setChatSearchQuery("");
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div 
         ref={scrollContainerRef}
@@ -759,7 +808,7 @@ export function ChatPanel({
           </div>
         )}
 
-        {groupMessagesByDate(decryptedMessages).map((group) => (
+        {groupMessagesByDate(displayedMessages).map((group) => (
           <React.Fragment key={group.dateLabel}>
             <div className="flex justify-center my-3">
               <span className="bg-[#E1F0FF] text-[#6B7A99] text-xs font-semibold px-3 py-1 rounded-full shadow-sm shadow-blue-100/50">

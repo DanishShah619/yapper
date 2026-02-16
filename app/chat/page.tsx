@@ -61,6 +61,18 @@ function ChatPageInner() {
   const currentUserId = meData?.me?.id ?? "";
   const activeConv = convData?.conversation;
 
+  let displayConversationName = activeConv?.name || "Conversation";
+  let displayConversationAvatar = null;
+  const isGroup = activeConv?.type === "GROUP";
+
+  if (activeConv && !isGroup) {
+    const otherMember = activeConv.members.find(m => m.user.id !== currentUserId);
+    if (otherMember) {
+      displayConversationName = otherMember.user.username;
+      displayConversationAvatar = otherMember.user.avatarUrl;
+    }
+  }
+
   const handleSelectConversation = (id: string) => {
     router.replace(`/chat?room=${id}`, { scroll: false });
     setShowSidebar(false);
@@ -94,9 +106,9 @@ function ChatPageInner() {
           <div className="w-full h-full">
             <ChatPanel
               conversationId={activeId}
-              conversationName={activeConv?.name ?? "Conversation"}
-              conversationAvatar={null}
-              isGroup={false}
+              conversationName={displayConversationName}
+              conversationAvatar={displayConversationAvatar}
+              isGroup={isGroup}
               currentUserId={currentUserId}
               conversationMembers={activeConv?.members ?? []}
               onBack={handleBack}
