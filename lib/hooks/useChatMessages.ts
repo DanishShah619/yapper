@@ -45,9 +45,14 @@ type GetMessagesData = {
   };
 };
 
+function isExpiredEphemeral(msg: MessageNode, now: number): boolean {
+  return msg.ephemeral && !!msg.expiresAt && new Date(msg.expiresAt).getTime() <= now;
+}
+
 export function useChatMessages(roomId: string | null) {
   const [realtimeMessages, setRealtimeMessages] = useState<MessageNode[]>([]);
   const [fetchedOlderMessages, setFetchedOlderMessages] = useState<MessageNode[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   const { data, loading, error, fetchMore: apolloFetchMore } = useQuery<GetMessagesData>(GET_MESSAGES, {
     variables: { roomId, limit: 50 },
@@ -60,17 +65,35 @@ export function useChatMessages(roomId: string | null) {
     const belongsToRoom = (msg: MessageNode) => msg.roomId === roomId || msg.groupId === roomId;
 
     for (const msg of fetchedOlderMessages) {
-      if (belongsToRoom(msg)) byId.set(msg.id, msg);
+      if (belongsToRoom(msg) && !isExpiredEphemeral(msg, now)) byId.set(msg.id, msg);
     }
-    for (const msg of data?.messages?.edges ?? []) byId.set(msg.id, msg);
+    for (const msg of data?.messages?.edges ?? []) {
+      if (!isExpiredEphemeral(msg, now)) byId.set(msg.id, msg);
+    }
     for (const msg of realtimeMessages) {
-      if (belongsToRoom(msg)) byId.set(msg.id, msg);
+      if (belongsToRoom(msg) && !isExpiredEphemeral(msg, now)) byId.set(msg.id, msg);
     }
 
     return Array.from(byId.values()).sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-  }, [data?.messages?.edges, fetchedOlderMessages, realtimeMessages, roomId]);
+  }, [data?.messages?.edges, fetchedOlderMessages, realtimeMessages, roomId, now]);
+
+  useEffect(() => {
+    const expiringMessages = [
+      ...fetchedOlderMessages,
+      ...(data?.messages?.edges ?? []),
+      ...realtimeMessages,
+    ].filter((msg) => msg.ephemeral && msg.expiresAt && new Date(msg.expiresAt).getTime() > Date.now());
+
+    if (expiringMessages.length === 0) return;
+
+    const nextExpiry = Math.min(...expiringMessages.map((msg) => new Date(msg.expiresAt!).getTime()));
+    const delay = Math.max(nextExpiry - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => setNow(Date.now()), delay + 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [data?.messages?.edges, fetchedOlderMessages, realtimeMessages, now]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -111,7 +134,7 @@ export function useChatMessages(roomId: string | null) {
         const olderMessages = [...res.data.messages.edges].sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
-        setFetchedOlderMessages((prev) => [...olderMessages, ...prev]);
+        setFetchedOlderMessages((prev) => [...olderMessages, ...prev].filter((msg) => !isExpiredEphemeral(msg, Date.now())));
       }
     } catch (e) {
       console.error("Error fetching more messages", e);

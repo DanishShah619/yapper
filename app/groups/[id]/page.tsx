@@ -90,6 +90,10 @@ type GroupMessagesData = {
   };
 };
 
+function isExpiredEphemeralMessage(message: GroupMessage, now: number): boolean {
+  return message.ephemeral && !!message.expiresAt && new Date(message.expiresAt).getTime() <= now;
+}
+
 export default function GroupChatPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
@@ -101,6 +105,7 @@ export default function GroupChatPage() {
   const [ephemeral, setEphemeral] = useState(false);
   const [ttl, setTtl] = useState(86400);
   const [realtimeMessages, setRealtimeMessages] = useState<GroupMessage[]>([]);
+  const [now, setNow] = useState(() => Date.now());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -139,12 +144,31 @@ export default function GroupChatPage() {
 
   const messages = useMemo(() => {
     const byId = new Map<string, GroupMessage>();
-    for (const message of messagesData?.messages.edges ?? []) byId.set(message.id, message);
-    for (const message of realtimeMessages) byId.set(message.id, message);
+    for (const message of messagesData?.messages.edges ?? []) {
+      if (!isExpiredEphemeralMessage(message, now)) byId.set(message.id, message);
+    }
+    for (const message of realtimeMessages) {
+      if (!isExpiredEphemeralMessage(message, now)) byId.set(message.id, message);
+    }
     return Array.from(byId.values()).sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-  }, [messagesData?.messages.edges, realtimeMessages]);
+  }, [messagesData?.messages.edges, realtimeMessages, now]);
+
+  useEffect(() => {
+    const expiringMessages = [
+      ...(messagesData?.messages.edges ?? []),
+      ...realtimeMessages,
+    ].filter((message) => message.ephemeral && message.expiresAt && new Date(message.expiresAt).getTime() > Date.now());
+
+    if (expiringMessages.length === 0) return;
+
+    const nextExpiry = Math.min(...expiringMessages.map((message) => new Date(message.expiresAt!).getTime()));
+    const delay = Math.max(nextExpiry - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => setNow(Date.now()), delay + 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [messagesData?.messages.edges, realtimeMessages, now]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -80,6 +80,10 @@ function groupMessagesByDate(messages: DecryptedMessage[]): Array<{
   }))
 }
 
+function isExpiredEphemeralMessage(message: DecryptedMessage, now: number): boolean {
+  return message.ephemeral && !!message.expiresAt && new Date(message.expiresAt).getTime() <= now;
+}
+
 export function ChatPanel({
   conversationId,
   conversationName,
@@ -153,8 +157,11 @@ export function ChatPanel({
       if (cancelled) return;
 
       setDecryptedMessages((prev) => {
-        const optimistic = prev.filter(m => m.isPending || m.isFailed);
-        const all = [...decrypted, ...optimistic].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const now = Date.now();
+        const optimistic = prev.filter(m => (m.isPending || m.isFailed) && !isExpiredEphemeralMessage(m, now));
+        const all = [...decrypted, ...optimistic]
+          .filter((message) => !isExpiredEphemeralMessage(message, now))
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         return all;
       });
     }
@@ -169,6 +176,20 @@ export function ChatPanel({
       cancelled = true;
     };
   }, [messages, conversationId, conversationMembers, currentUserId]);
+
+  useEffect(() => {
+    const expiringMessages = decryptedMessages.filter((message) => message.ephemeral && message.expiresAt);
+    if (expiringMessages.length === 0) return;
+
+    const nextExpiry = Math.min(...expiringMessages.map((message) => new Date(message.expiresAt!).getTime()));
+    const delay = Math.max(nextExpiry - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => {
+      const now = Date.now();
+      setDecryptedMessages((prev) => prev.filter((message) => !isExpiredEphemeralMessage(message, now)));
+    }, delay + 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [decryptedMessages]);
 
   // Save scroll position on unmount / conversationId change
   useEffect(() => {
@@ -283,6 +304,7 @@ export function ChatPanel({
       senderName: "You",
       timestamp: sentAt,
       ephemeral,
+      expiresAt: ephemeral ? new Date(Date.now() + ttl * 1000).toISOString() : null,
       isPending: true,
       isFailed: false,
     };
