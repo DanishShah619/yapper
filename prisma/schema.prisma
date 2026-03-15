@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum RoomType {
+  PERSISTENT
+  EPHEMERAL
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MemberAddPolicy {
+  ADMIN_ONLY
+  OPEN
+}
+
+// ─── Core Tables ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  avatarUrl    String?
+  publicKey    String?  // For E2EE key exchange (ECDH public key)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  sentRequests     Friendship[] @relation("FriendshipRequester")
+  receivedRequests Friendship[] @relation("FriendshipAddressee")
+  createdRooms     Room[]       @relation("RoomCreator")
+  roomMemberships  RoomMember[]
+  sentMessages     Message[]
+  uploadedFiles    File[]
+  createdGroups    Group[]      @relation("GroupCreator")
+  groupMemberships GroupMember[]
+  createdVideoRooms VideoRoom[]
+  posts            Post[]
+  feedItems        FeedItem[]
+
+  @@map("users")
+}
+
+model Friendship {
+  id          String           @id @default(uuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  requester User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
+// ─── Rooms & Messaging ──────────────────────────────────────
+
+model Room {
+  id        String   @id @default(uuid())
+  name      String?
+  type      RoomType @default(PERSISTENT)
+  createdBy String
+  locked    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  creator  User         @relation("RoomCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  members  RoomMember[]
+  messages Message[]
+  files    File[]
+
+  @@map("rooms")
+}
+
+model RoomMember {
+  id       String     @id @default(uuid())
+  roomId   String
+  userId   String
+  role     MemberRole @default(MEMBER)
+  mutedAt  DateTime?
+  joinedAt DateTime   @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("room_members")
+}
+
+model Message {
+  id               String    @id @default(uuid())
+  roomId           String
+  senderId         String
+  encryptedPayload String
+  ephemeral        Boolean   @default(false)
+  expiresAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@map("messages")
+}
+
+model File {
+  id                String   @id @default(uuid())
+  roomId            String
+  uploaderId        String
+  encryptedBlob     Bytes
+  encryptedMetadata String
+  createdAt         DateTime @default(now())
+
+  room     Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@map("files")
+}
+
+// ─── Groups ─────────────────────────────────────────────────
+
+model Group {
+  id              String          @id @default(uuid())
+  name            String
+  type            RoomType        @default(PERSISTENT)
+  avatarUrl       String?
+  createdBy       String
+  locked          Boolean         @default(false)
+  memberAddPolicy MemberAddPolicy @default(ADMIN_ONLY)
+  createdAt       DateTime        @default(now())
+
+  creator  User          @relation("GroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  members  GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  userId   String
+  role     MemberRole @default(MEMBER)
+  mutedAt  DateTime?
+  joinedAt DateTime   @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+// ─── Video ──────────────────────────────────────────────────
+
+model VideoRoom {
+  id              String   @id @default(uuid())
+  liveKitRoomId   String?  @unique
+  createdBy       String
+  locked          Boolean  @default(false)
+  maxParticipants Int      @default(4)
+  createdAt       DateTime @default(now())
+
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("video_rooms")
+}
+
+// ─── V2 Stubs ───────────────────────────────────────────────
+
+model Post {
+  id        String     @id @default(uuid())
+  userId    String
+  content   String
+  createdAt DateTime   @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedItems FeedItem[]
+
+  @@index([userId, createdAt])
+  @@map("posts")
+}
+
+model FeedItem {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("feed_items")
+}

@@ -1,0 +1,224 @@
+# ─── Scalars ─────────────────────────────────────────────────
+scalar DateTime
+
+# ─── Enums ───────────────────────────────────────────────────
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum RoomType {
+  PERSISTENT
+  EPHEMERAL
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MemberAddPolicy {
+  ADMIN_ONLY
+  OPEN
+}
+
+# ─── Types ───────────────────────────────────────────────────
+type User {
+  id: ID!
+  email: String!
+  username: String!
+  avatarUrl: String
+  createdAt: DateTime!
+}
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+type Friendship {
+  id: ID!
+  requester: User!
+  addressee: User!
+  status: FriendshipStatus!
+  createdAt: DateTime!
+}
+
+type Room {
+  id: ID!
+  name: String
+  type: RoomType!
+  createdBy: User!
+  locked: Boolean!
+  members: [RoomMember!]!
+  createdAt: DateTime!
+}
+
+type RoomMember {
+  id: ID!
+  user: User!
+  role: MemberRole!
+  mutedAt: DateTime
+  joinedAt: DateTime!
+}
+
+type Message {
+  id: ID!
+  roomId: ID!
+  sender: User!
+  encryptedPayload: String!
+  ephemeral: Boolean!
+  expiresAt: DateTime
+  createdAt: DateTime!
+}
+
+type MessageConnection {
+  edges: [Message!]!
+  pageInfo: PageInfo!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type File {
+  id: ID!
+  roomId: ID!
+  uploader: User!
+  encryptedMetadata: String!
+  createdAt: DateTime!
+}
+
+type Group {
+  id: ID!
+  name: String!
+  type: RoomType!
+  avatarUrl: String
+  createdBy: User!
+  locked: Boolean!
+  memberAddPolicy: MemberAddPolicy!
+  members: [GroupMember!]!
+  createdAt: DateTime!
+}
+
+type GroupMember {
+  id: ID!
+  user: User!
+  role: MemberRole!
+  mutedAt: DateTime
+  joinedAt: DateTime!
+}
+
+type VideoRoom {
+  id: ID!
+  liveKitRoomId: String
+  createdBy: User!
+  locked: Boolean!
+  maxParticipants: Int!
+  createdAt: DateTime!
+}
+
+type Post {
+  id: ID!
+  user: User!
+  content: String!
+  createdAt: DateTime!
+}
+
+type FeedItem {
+  id: ID!
+  post: Post!
+  createdAt: DateTime!
+}
+
+type PeopleYouMayKnowSuggestion {
+  user: User!
+  mutualFriendsCount: Int!
+}
+
+type InviteLink {
+  url: String!
+  expiresAt: DateTime!
+}
+
+# ─── Queries ─────────────────────────────────────────────────
+type Query {
+  # Auth
+  me: User!
+
+  # Users
+  user(username: String!): User
+
+  # Social Graph
+  connections: [User!]!
+  connectionRequests: [Friendship!]!
+
+  # Messaging
+  conversation(id: ID!): Room
+  conversations: [Room!]!
+  messages(roomId: ID!, cursor: String, limit: Int): MessageConnection!
+
+  # Groups
+  group(id: ID!): Group
+  groups: [Group!]!
+
+  # V2 Stubs
+  peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
+  feed(cursor: String, limit: Int): [FeedItem!]!
+}
+
+# ─── Mutations ───────────────────────────────────────────────
+type Mutation {
+  # Auth
+  register(email: String!, username: String!, password: String!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  logout: Boolean!
+
+  # Social Graph
+  sendConnectionRequest(username: String!): Friendship!
+  respondToConnectionRequest(requestId: ID!, accept: Boolean!): Friendship!
+  removeConnection(userId: ID!): Boolean!
+
+  # Rooms
+  createRoom(name: String!, type: RoomType!): Room!
+  inviteToRoom(roomId: ID!, username: String!): RoomMember!
+  generateInviteLink(roomId: ID!, ttl: Int!): InviteLink!
+
+  # Messages
+  sendMessage(roomId: ID!, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
+
+  # Files
+  uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
+
+  # Groups
+  createGroup(name: String!, type: RoomType!, avatar: String): Group!
+  addGroupMember(groupId: ID!, username: String!): GroupMember!
+  removeGroupMember(groupId: ID!, userId: ID!): Boolean!
+  promoteGroupMember(groupId: ID!, userId: ID!): GroupMember!
+  transferGroupOwnership(groupId: ID!, userId: ID!): Group!
+  lockGroup(groupId: ID!): Group!
+  deleteGroup(groupId: ID!): Boolean!
+  muteGroupMember(groupId: ID!, userId: ID!): GroupMember!
+
+  # Video
+  createVideoRoom(maxParticipants: Int): VideoRoom!
+  approveParticipant(roomId: ID!, participantId: ID!): Boolean!
+  rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
+  lockVideoRoom(roomId: ID!): VideoRoom!
+
+  # V2 Stubs
+  createPost(content: String!): Post!
+}
+
+# ─── Subscriptions ───────────────────────────────────────────
+type Subscription {
+  messageReceived(roomId: ID!): Message!
+  presenceUpdated(userId: ID!): Boolean!
+  waitingRoomUpdated(videoRoomId: ID!): Boolean!
+  participantApproved(videoRoomId: ID!): Boolean!
+  participantRejected(videoRoomId: ID!): Boolean!
+  roomLocked(videoRoomId: ID!): Boolean!
+  groupMemberUpdated(groupId: ID!): GroupMember!
+}
