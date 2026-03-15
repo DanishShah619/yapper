@@ -134,17 +134,22 @@ export default function DashboardPage() {
               <div className="dashboard-card">
                 <div className="dashboard-card-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }}>💬</div>
                 <h3>Messages</h3>
-                <p>E2E encrypted DMs coming in Phase 3</p>
+                <p>E2E encrypted DMs — coming in Phase 3</p>
               </div>
               <div className="dashboard-card">
                 <div className="dashboard-card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>👥</div>
                 <h3>Connections</h3>
-                <p>Social graph coming in Phase 2</p>
+                <p>Social graph — coming in Phase 2</p>
               </div>
+              <a href="/groups" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(26, 188, 156, 0.3)', background: 'linear-gradient(135deg, rgba(26,188,156,0.08), rgba(37,99,235,0.06))' }}>
+                <div className="dashboard-card-icon" style={{ background: 'rgba(26, 188, 156, 0.15)', color: '#1ABC9C' }}>🏠</div>
+                <h3 style={{ color: '#1ABC9C' }}>Groups <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(26,188,156,0.15)', color: '#1ABC9C', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
+                <p>Encrypted group chats — Phase 5 is here. Click to open.</p>
+              </a>
               <div className="dashboard-card">
                 <div className="dashboard-card-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa' }}>📹</div>
                 <h3>Video Calls</h3>
-                <p>LiveKit SFU calls coming in Phase 4</p>
+                <p>LiveKit SFU calls — coming in Phase 4</p>
               </div>
             </div>
           </div>

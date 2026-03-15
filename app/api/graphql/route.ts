@@ -6,7 +6,7 @@ import { resolvers } from '@/graphql/resolvers';
 import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
 import { extractToken, validateSession } from '@/lib/auth';
-import { GraphQLContext } from '@/graphql/context';
+import { GraphQLContext, pubsub } from '@/graphql/context';
 
 const server = new ApolloServer<GraphQLContext>({
   typeDefs,
@@ -37,9 +37,11 @@ const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(ser
       redis,
       userId,
       clientIp,
+      pubsub,
     };
   },
 });
+
 
 export async function GET(request: NextRequest) {
   return handler(request);

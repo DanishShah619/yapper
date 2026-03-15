@@ -73,7 +73,8 @@ export const typeDefs = `#graphql
 
   type Message {
     id: ID!
-    roomId: ID!
+    roomId: ID
+    groupId: ID
     sender: User!
     encryptedPayload: String!
     ephemeral: Boolean!
@@ -172,8 +173,8 @@ export const typeDefs = `#graphql
     removeConnection(userId: ID!): Boolean!
     createRoom(name: String!, type: RoomType!): Room!
     inviteToRoom(roomId: ID!, username: String!): RoomMember!
-    generateInviteLink(roomId: ID!, ttl: Int!): InviteLink!
-    sendMessage(roomId: ID!, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
+    generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
+    sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
     uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
     createGroup(name: String!, type: RoomType!, avatar: String): Group!
     addGroupMember(groupId: ID!, username: String!): GroupMember!
@@ -183,6 +184,8 @@ export const typeDefs = `#graphql
     lockGroup(groupId: ID!): Group!
     deleteGroup(groupId: ID!): Boolean!
     muteGroupMember(groupId: ID!, userId: ID!): GroupMember!
+    leaveGroup(groupId: ID!): Boolean!
+    updateMemberAddPolicy(groupId: ID!, policy: MemberAddPolicy!): Group!
     createVideoRoom(maxParticipants: Int): VideoRoom!
     approveParticipant(roomId: ID!, participantId: ID!): Boolean!
     rejectParticipant(roomId: ID!, participantId: ID!): Boolean!

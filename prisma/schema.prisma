@@ -106,17 +106,20 @@ model RoomMember {
 
 model Message {
   id               String    @id @default(uuid())
-  roomId           String
+  roomId           String?
+  groupId          String?
   senderId         String
   encryptedPayload String
   ephemeral        Boolean   @default(false)
   expiresAt        DateTime?
   createdAt        DateTime  @default(now())
 
-  room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  room   Room?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  group  Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([roomId, createdAt])
+  @@index([groupId, createdAt])
   @@map("messages")
 }
 
@@ -149,6 +152,7 @@ model Group {
 
   creator  User          @relation("GroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   members  GroupMember[]
+  messages Message[]
 
   @@map("groups")
 }

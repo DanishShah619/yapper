@@ -1,6 +1,7 @@
 import { authResolvers } from './auth';
 import { userResolvers } from './user';
 import { stubResolvers } from './stubs';
+import { groupResolvers } from './groups';
 import { GraphQLScalarType, Kind } from 'graphql';
 
 // Custom DateTime scalar
@@ -40,6 +41,15 @@ export const resolvers = {
 
   Mutation: {
     ...authResolvers.Mutation,
+    // Phase 2 connection mutations from userResolvers (respondToConnectionRequest, sendConnectionRequest)
+    ...userResolvers.Mutation,
+    // Phase 3-4 room/message/video stubs
     ...stubResolvers.Mutation,
+    // Phase 5 group mutations (override any stubs for group mutations)
+    ...groupResolvers.Mutation,
+  },
+
+  Subscription: {
+    ...groupResolvers.Subscription,
   },
 };

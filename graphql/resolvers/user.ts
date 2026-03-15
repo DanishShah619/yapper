@@ -191,12 +191,20 @@ export const userResolvers = {
 
     group: async (
       _parent: unknown,
-      _args: { id: string },
+      args: { id: string },
       context: GraphQLContext
     ) => {
       if (!context.userId) throw new Error('Not authenticated');
-      // TODO: Phase 5
-      return null;
+      // Find group and members
+      const group = await prisma.group.findUnique({
+        where: { id: args.id },
+        include: { members: { include: { user: true } } },
+      });
+      if (!group) return null;
+      // Check membership
+      const member = await prisma.groupMember.findFirst({ where: { groupId: args.id, userId: context.userId } });
+      if (!member) throw new Error('Not authorized');
+      return group;
     },
 
     groups: async (
@@ -205,8 +213,12 @@ export const userResolvers = {
       context: GraphQLContext
     ) => {
       if (!context.userId) throw new Error('Not authenticated');
-      // TODO: Phase 5
-      return [];
+      // Find all groups for user
+      const memberships = await prisma.groupMember.findMany({
+        where: { userId: context.userId },
+        include: { group: { include: { members: { include: { user: true } } } } },
+      });
+      return memberships.map(m => m.group);
     },
 
     // ─── V2 Stubs ───

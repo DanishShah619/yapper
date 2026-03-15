@@ -65,7 +65,8 @@ type RoomMember {
 
 type Message {
   id: ID!
-  roomId: ID!
+  roomId: ID
+  groupId: ID
   sender: User!
   encryptedPayload: String!
   ephemeral: Boolean!
@@ -184,10 +185,10 @@ type Mutation {
   # Rooms
   createRoom(name: String!, type: RoomType!): Room!
   inviteToRoom(roomId: ID!, username: String!): RoomMember!
-  generateInviteLink(roomId: ID!, ttl: Int!): InviteLink!
+  generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
 
   # Messages
-  sendMessage(roomId: ID!, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
+  sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
 
   # Files
   uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
@@ -201,6 +202,8 @@ type Mutation {
   lockGroup(groupId: ID!): Group!
   deleteGroup(groupId: ID!): Boolean!
   muteGroupMember(groupId: ID!, userId: ID!): GroupMember!
+  leaveGroup(groupId: ID!): Boolean!
+  updateMemberAddPolicy(groupId: ID!, policy: MemberAddPolicy!): Group!
 
   # Video
   createVideoRoom(maxParticipants: Int): VideoRoom!
