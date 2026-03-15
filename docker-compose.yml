@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: nexchat-livekit
+    restart: unless-stopped
+    ports:
+      - '7880:7880'
+    environment:
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_PORT: 7880
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:7880']
+      interval: 10s
+      timeout: 5s
+      retries: 5
   postgres:
     image: postgres:16-alpine
     container_name: nexchat-postgres

@@ -2,6 +2,87 @@ import prisma from '@/lib/prisma';
 import { GraphQLContext } from '@/graphql/context';
 
 export const userResolvers = {
+        respondToConnectionRequest: async (
+          _parent: unknown,
+          args: { requestId: string; accept: boolean },
+          context: GraphQLContext
+        ) => {
+          if (!context.userId) throw new Error('Not authenticated');
+
+          // Find the friendship request
+          const friendship = await prisma.friendship.findUnique({
+            where: { id: args.requestId },
+            include: { requester: true, addressee: true },
+          });
+          if (!friendship) throw new Error('Request not found');
+          if (friendship.addresseeId !== context.userId) throw new Error('Not authorized');
+          if (friendship.status !== 'PENDING') throw new Error('Request already handled');
+
+          // Update status
+          const updated = await prisma.friendship.update({
+            where: { id: args.requestId },
+            data: { status: args.accept ? 'ACCEPTED' : 'DECLINED' },
+            include: { requester: true, addressee: true },
+          });
+
+          return {
+            id: updated.id,
+            requester: updated.requester,
+            addressee: updated.addressee,
+            status: updated.status,
+            createdAt: updated.createdAt,
+          };
+        },
+    Mutation: {
+      sendConnectionRequest: async (
+        _parent: unknown,
+        args: { username: string },
+        context: GraphQLContext
+      ) => {
+        if (!context.userId) throw new Error('Not authenticated');
+
+        const targetUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: args.username.toLowerCase() },
+              { email: args.username.toLowerCase() },
+            ],
+          },
+        });
+        if (!targetUser) throw new Error('User not found');
+        if (targetUser.id === context.userId) throw new Error('Cannot send request to yourself');
+
+        // Check for existing friendship
+        const existing = await prisma.friendship.findFirst({
+          where: {
+            requesterId: context.userId,
+            addresseeId: targetUser.id,
+          },
+        });
+        if (existing) throw new Error('Request already sent');
+
+        // Create friendship request
+        const friendship = await prisma.friendship.create({
+          data: {
+            requesterId: context.userId,
+            addresseeId: targetUser.id,
+            status: 'PENDING',
+          },
+          include: {
+            requester: true,
+            addressee: true,
+          },
+        });
+
+        return {
+          id: friendship.id,
+          requester: friendship.requester,
+          addressee: friendship.addressee,
+          status: friendship.status,
+          createdAt: friendship.createdAt,
+        };
+      },
+    },
   Query: {
     me: async (_parent: unknown, _args: unknown, context: GraphQLContext) => {
       if (!context.userId) {
@@ -34,8 +115,14 @@ export const userResolvers = {
         throw new Error('Not authenticated');
       }
 
-      const user = await prisma.user.findUnique({
-        where: { username: args.username.toLowerCase() },
+      // Search by username or email
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: args.username.toLowerCase() },
+            { email: args.username.toLowerCase() },
+          ],
+        },
       });
 
       if (!user) {
