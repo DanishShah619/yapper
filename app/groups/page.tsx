@@ -15,7 +15,7 @@ const GET_GROUPS = gql`
   query GetGroups {
     groups {
       id name avatarUrl type locked
-      members { id role }
+      members { id role user { id } }
     }
   }
 `;
@@ -31,7 +31,20 @@ export default function GroupsPage() {
   const { data: meData, loading: meLoading, error: meError } = useQuery<{ me: { id: string } }>(ME_QUERY);
   const myId = meData?.me?.id;
 
-  const { data, loading, error } = useQuery<{ groups: any[] }>(GET_GROUPS);
+  type GroupListItem = {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    type: string;
+    locked: boolean;
+    members: Array<{
+      id: string;
+      role: string;
+      user: { id: string };
+    }>;
+  };
+
+  const { data, loading, error } = useQuery<{ groups: GroupListItem[] }>(GET_GROUPS);
   const groups = data?.groups || [];
 
   const isLoading = meLoading || loading;
@@ -92,8 +105,8 @@ export default function GroupsPage() {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {groups.map((g: any) => {
-              const myMembership = g.members.find((m: any) => m.id === myId);
+            {groups.map((g) => {
+              const myMembership = g.members.find((m) => m.user.id === myId);
               const isAdmin = myMembership?.role === 'ADMIN';
 
               return (

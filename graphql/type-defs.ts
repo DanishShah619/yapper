@@ -149,6 +149,7 @@ export const typeDefs = `#graphql
     name: String!
     type: RoomType!
     avatarUrl: String
+    createdBy: ID!
     locked: Boolean!
     memberAddPolicy: MemberAddPolicy!
     members: [GroupMember!]!
@@ -246,6 +247,7 @@ export const typeDefs = `#graphql
     transferGroupOwnership(groupId: ID!, userId: ID!): Group!
     submitRotatedGroupKeys(groupId: ID!, wrappedKeys: [WrappedKeyInput!]!): Boolean!
     lockGroup(groupId: ID!): Group!
+    unlockGroup(groupId: ID!): Group!
     deleteGroup(groupId: ID!): Boolean!
     muteGroupMember(groupId: ID!, userId: ID!): GroupMember!
     leaveGroup(groupId: ID!): Boolean!

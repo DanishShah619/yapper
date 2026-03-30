@@ -13,17 +13,26 @@ import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 
 const CREATE_GROUP = gql`
-  mutation CreateGroup($name: String!, $type: String!) {
+  mutation CreateGroup($name: String!, $type: RoomType!) {
     createGroup(name: $name, type: $type) { id name }
   }
 `;
 
+type RoomType = 'PERSISTENT' | 'EPHEMERAL';
+
+type CreateGroupData = {
+  createGroup: {
+    id: string;
+    name: string;
+  };
+};
+
 export function CreateGroupModal({ open, onClose, onCreated }: CreateGroupModalProps) {
   const [name, setName] = useState('');
-  const [type, setType] = useState('PERSISTENT');
+  const [type, setType] = useState<RoomType>('PERSISTENT');
 
-  const [createGroup, { loading }] = useMutation(CREATE_GROUP, {
-    onCompleted: (data: any) => {
+  const [createGroup, { loading }] = useMutation<CreateGroupData>(CREATE_GROUP, {
+    onCompleted: (data) => {
       onCreated(data.createGroup.id);
       onClose();
     },

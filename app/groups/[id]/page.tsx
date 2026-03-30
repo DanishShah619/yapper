@@ -1,21 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { Users, Settings, Paperclip, Send, Clock, ArrowLeft } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { SkeletonCard } from '@/components/ui/Skeletons';
 import { MemberPanel } from '@/components/ui/MemberPanel';
 import { GroupSettingsPanel } from '@/components/ui/GroupSettingsPanel';
 import { useToast } from '@/components/ui/Toast';
+import { getSocket } from '@/lib/socketClient';
 
 const GET_GROUP = gql`
   query GetGroup($id: ID!) {
     group(id: $id) {
       id name avatarUrl type locked createdBy
-      members { id username avatarUrl role }
+      members { id role user { id username avatarUrl } }
     }
   }
 `;
@@ -23,30 +23,72 @@ const GET_GROUP = gql`
 const ME_QUERY = gql`query MeGroupChat { me { id } }`;
 
 const GET_GROUP_MESSAGES = gql`
-  query GetGroupMessages($roomId: ID!, $cursor: String, $limit: Int) {
-    messages(roomId: $roomId, cursor: $cursor, limit: $limit) {
-      id senderId encryptedPayload ephemeral expiresAt createdAt
-      sender { id username avatarUrl }
-    }
-  }
-`;
-
-const ON_MESSAGE = gql`
-  subscription OnMessage($roomId: ID!) {
-    messageReceived(roomId: $roomId) {
-      id senderId encryptedPayload ephemeral expiresAt createdAt
-      sender { id username avatarUrl }
+  query GetGroupMessages($groupId: ID!, $cursor: String, $limit: Int) {
+    messages(groupId: $groupId, cursor: $cursor, limit: $limit) {
+      edges {
+        id encryptedPayload ephemeral expiresAt createdAt
+        sender { id username avatarUrl }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
     }
   }
 `;
 
 const SEND_GROUP_MESSAGE = gql`
-  mutation SendGroupMessage($roomId: ID!, $encryptedPayload: String!, $ephemeral: Boolean!, $ttl: Int) {
-    sendMessage(groupId: $roomId, encryptedPayload: $encryptedPayload, ephemeral: $ephemeral, ttl: $ttl) {
+  mutation SendGroupMessage($groupId: ID!, $encryptedPayload: String!, $ephemeral: Boolean!, $ttl: Int) {
+    sendMessage(groupId: $groupId, encryptedPayload: $encryptedPayload, ephemeral: $ephemeral, ttl: $ttl) {
       id
     }
   }
 `;
+
+type GroupMemberNode = {
+  id: string;
+  role: "ADMIN" | "MEMBER";
+  user: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+};
+
+type GroupNode = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  type: string;
+  locked: boolean;
+  createdBy: string;
+  members: GroupMemberNode[];
+};
+
+type GroupMessage = {
+  id: string;
+  roomId?: string | null;
+  groupId?: string | null;
+  encryptedPayload: string;
+  ephemeral: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+  sender: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+};
+
+type GroupMessagesData = {
+  messages: {
+    edges: GroupMessage[];
+    pageInfo: {
+      hasNextPage: boolean;
+      endCursor: string | null;
+    };
+  };
+};
 
 export default function GroupChatPage() {
   const { id } = useParams() as { id: string };
@@ -58,33 +100,51 @@ export default function GroupChatPage() {
   const [inputText, setInputText] = useState('');
   const [ephemeral, setEphemeral] = useState(false);
   const [ttl, setTtl] = useState(86400);
+  const [realtimeMessages, setRealtimeMessages] = useState<GroupMessage[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
   const myId = meData?.me?.id;
 
-  const { data: groupData, refetch: refetchGroup } = useQuery<{ group: any }>(GET_GROUP, { variables: { id } });
+  const { data: groupData, refetch: refetchGroup } = useQuery<{ group: GroupNode }>(GET_GROUP, { variables: { id } });
   const group = groupData?.group;
 
-  const { data: messagesData, subscribeToMore } = useQuery<{ messages: any[] }>(GET_GROUP_MESSAGES, { variables: { roomId: id, limit: 50 } });
+  const { data: messagesData } = useQuery<GroupMessagesData>(GET_GROUP_MESSAGES, { variables: { groupId: id, limit: 50 } });
   const [sendMessage, { loading: sending }] = useMutation(SEND_GROUP_MESSAGE);
 
   useEffect(() => {
-    const unsubscribe = subscribeToMore({
-      document: ON_MESSAGE,
-      variables: { roomId: id },
-      updateQuery: (prev: any, { subscriptionData }: { subscriptionData: any }) => {
-        if (!subscriptionData.data) return prev;
-        const newMsg = subscriptionData.data.messageReceived;
-        if (prev.messages.find((m: any) => m.id === newMsg.id)) return prev;
-        return { ...prev, messages: [...prev.messages, newMsg] };
-      }
-    });
-    return () => unsubscribe();
-  }, [id, subscribeToMore]);
+    if (!id) return;
 
-  const messages = messagesData?.messages || [];
+    const socket = getSocket();
+    const join = () => socket.emit('joinRoom', id);
+    const handleMessage = (newMessage: GroupMessage) => {
+      if (newMessage.groupId !== id && newMessage.roomId !== id) return;
+      setRealtimeMessages((prev) => {
+        if (prev.some((message) => message.id === newMessage.id)) return prev;
+        return [...prev, newMessage];
+      });
+    };
+
+    if (socket.connected) join();
+    socket.on('connect', join);
+    socket.on('message:new', handleMessage);
+
+    return () => {
+      socket.off('connect', join);
+      socket.off('message:new', handleMessage);
+      socket.emit('leaveRoom', id);
+    };
+  }, [id]);
+
+  const messages = useMemo(() => {
+    const byId = new Map<string, GroupMessage>();
+    for (const message of messagesData?.messages.edges ?? []) byId.set(message.id, message);
+    for (const message of realtimeMessages) byId.set(message.id, message);
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [messagesData?.messages.edges, realtimeMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,10 +155,10 @@ export default function GroupChatPage() {
     try {
       // In a real E2EE app, we would encrypt the payload here.
       // For UI implementation purposes, we'll send it directly as "encryptedPayload"
-      await sendMessage({ variables: { roomId: id, encryptedPayload: inputText, ephemeral, ttl: ephemeral ? ttl : null } });
+      await sendMessage({ variables: { groupId: id, encryptedPayload: inputText, ephemeral, ttl: ephemeral ? ttl : null } });
       setInputText('');
-    } catch (err: any) {
-      showToast(err.message, 'error');
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to send message', 'error');
     }
   };
 
@@ -111,8 +171,14 @@ export default function GroupChatPage() {
 
   if (!group) return <div className="bg-[#F0F8FF] h-screen flex items-center justify-center">Loading...</div>;
 
-  const myMembership = group.members.find((m: any) => m.id === myId);
+  const myMembership = group.members.find((m) => m.user.id === myId);
   const isAdmin = myMembership?.role === 'ADMIN';
+  const memberPanelMembers = group.members.map((member) => ({
+    id: member.user.id,
+    username: member.user.username,
+    avatarUrl: member.user.avatarUrl,
+    role: member.role,
+  }));
 
   return (
     <div className="flex flex-col h-screen bg-[#F0F8FF] overflow-hidden">
@@ -141,8 +207,8 @@ export default function GroupChatPage() {
         {messages.length === 0 ? (
           <div className="text-center text-sm font-medium text-[#6B7A99] my-10">No messages yet. Send one to start the conversation!</div>
         ) : (
-          messages.map((msg: any) => {
-            const isMe = msg.senderId === myId;
+          messages.map((msg) => {
+            const isMe = msg.sender.id === myId;
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 py-2.5 max-w-xs text-sm font-medium text-[#0A0A0A] ${
@@ -155,10 +221,10 @@ export default function GroupChatPage() {
                 <div className="flex items-center gap-1.5 mt-1">
                   {!isMe && <span className="text-xs font-medium text-[#6B7A99]">{msg.sender.username}</span>}
                   <span className="text-[10px] font-medium text-[#6B7A99]">
-                    {new Date(parseInt(msg.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   {msg.ephemeral && (
-                    <div className="flex items-center gap-0.5 ml-1 text-[#6B7A99]" title={`Expires at ${new Date(parseInt(msg.expiresAt)).toLocaleString()}`}>
+                    <div className="flex items-center gap-0.5 ml-1 text-[#6B7A99]" title={msg.expiresAt ? `Expires at ${new Date(msg.expiresAt).toLocaleString()}` : 'Ephemeral'}>
                       <Clock size={10} />
                       <span className="text-[10px] font-medium">Eph</span>
                     </div>
@@ -225,7 +291,7 @@ export default function GroupChatPage() {
 
       <MemberPanel 
         groupId={id}
-        members={group.members}
+        members={memberPanelMembers}
         isAdmin={isAdmin}
         currentUserId={myId}
         open={memberPanelOpen}

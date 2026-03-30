@@ -10,11 +10,13 @@
 
 import { Server as SocketIOServer } from 'socket.io';
 
-let _io: SocketIOServer | null = null;
+const globalForSocketIO = globalThis as typeof globalThis & {
+  __nexchatIO?: SocketIOServer;
+};
 
 /** Called once from server.ts right after io is created. */
 export function setIO(io: SocketIOServer): void {
-  _io = io;
+  globalForSocketIO.__nexchatIO = io;
 }
 
 /**
@@ -22,13 +24,13 @@ export function setIO(io: SocketIOServer): void {
  * Throws if called before setIO() — this indicates a startup order bug.
  */
 export function getIO(): SocketIOServer {
-  if (!_io) {
+  if (!globalForSocketIO.__nexchatIO) {
     throw new Error('[socketIO] Socket.IO server not initialised yet. Call setIO(io) in server.ts first.');
   }
-  return _io;
+  return globalForSocketIO.__nexchatIO;
 }
 
 /** Returns the Socket.IO server when the custom server is running. */
 export function tryGetIO(): SocketIOServer | null {
-  return _io;
+  return globalForSocketIO.__nexchatIO ?? null;
 }

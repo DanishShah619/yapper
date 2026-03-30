@@ -350,6 +350,23 @@ export const groupResolvers = {
       return group;
     },
 
+    unlockGroup: async (
+      _parent: unknown,
+      args: { groupId: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+      await requireAdmin(args.groupId, ctx.userId, ctx);
+
+      const group = await ctx.prisma.group.update({
+        where: { id: args.groupId },
+        data: { locked: false },
+        include: { members: { include: { user: true } }, creator: true },
+      });
+
+      return group;
+    },
+
     updateMemberAddPolicy: async (
       _parent: unknown,
       args: { groupId: string; policy: 'ADMIN_ONLY' | 'OPEN' },

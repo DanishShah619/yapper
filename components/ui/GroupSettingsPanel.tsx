@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useMutation } from '@apollo/client/react';
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { X, Lock, Unlock, Link as LinkIcon, UserPlus, LogOut, Trash2 } from 'lucide-react';
@@ -14,9 +14,51 @@ const UNLOCK_GROUP = gql`mutation UnlockGroup($groupId: ID!) { unlockGroup(group
 const GENERATE_INVITE = gql`mutation GenerateInviteLink($groupId: ID!, $ttl: Int!) { generateInviteLink(groupId: $groupId, ttl: $ttl) { url } }`;
 const LEAVE_GROUP = gql`mutation LeaveGroup($groupId: ID!) { leaveGroup(groupId: $groupId) }`;
 const DELETE_GROUP = gql`mutation DeleteGroup($groupId: ID!) { deleteGroup(groupId: $groupId) }`;
+const GET_CONNECTIONS = gql`
+  query GetConnectionsForGroupAdd {
+    connections { id username avatarUrl }
+  }
+`;
+const ADD_GROUP_MEMBER = gql`
+  mutation AddGroupMember($groupId: ID!, $username: String!) {
+    addGroupMember(groupId: $groupId, username: $username) {
+      id
+      user { id username avatarUrl }
+      role
+    }
+  }
+`;
+
+type GenerateInviteData = {
+  generateInviteLink: {
+    url: string;
+  };
+};
+
+type ConnectionNode = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
+type GroupMemberNode = {
+  user: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+};
 
 export interface GroupSettingsPanelProps {
-  group: { id: string; name: string; avatarUrl: string | null; locked: boolean; type: string; createdBy?: string };
+  group: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    locked: boolean;
+    type: string;
+    createdBy?: string;
+    members?: GroupMemberNode[];
+  };
   isAdmin: boolean;
   currentUserId?: string;
   onClose: () => void;
@@ -27,11 +69,16 @@ export interface GroupSettingsPanelProps {
 export function GroupSettingsPanel({ group, isAdmin, currentUserId, onClose, open, onRefresh }: GroupSettingsPanelProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const [addUsername, setAddUsername] = useState('');
+  const [memberSearchFocused, setMemberSearchFocused] = useState(false);
+  const { data: connectionsData } = useQuery<{ connections: ConnectionNode[] }>(GET_CONNECTIONS, {
+    skip: !isAdmin || !open,
+  });
 
   const [lockGroup] = useMutation(LOCK_GROUP, { onCompleted: onRefresh, onError: (e) => showToast(e.message, 'error') });
   const [unlockGroup] = useMutation(UNLOCK_GROUP, { onCompleted: onRefresh, onError: (e) => showToast(e.message, 'error') });
-  const [generateInvite] = useMutation(GENERATE_INVITE, {
-    onCompleted: (data: any) => {
+  const [generateInvite] = useMutation<GenerateInviteData>(GENERATE_INVITE, {
+    onCompleted: (data) => {
       const fullUrl = `${window.location.origin}${data.generateInviteLink.url}`;
       navigator.clipboard.writeText(fullUrl);
       showToast("Link copied!", "success");
@@ -47,10 +94,58 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, onClose, ope
     onCompleted: () => router.push('/groups'),
     onError: (e) => showToast(e.message, 'error')
   });
+  const [addGroupMember, { loading: addingMember }] = useMutation(ADD_GROUP_MEMBER, {
+    onCompleted: () => {
+      setAddUsername('');
+      onRefresh();
+      showToast('Member added', 'success');
+    },
+    onError: (e) => showToast(e.message, 'error')
+  });
 
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isCreator = currentUserId === group.createdBy;
+  const existingMemberIds = useMemo(
+    () => new Set((group.members ?? []).map((member) => member.user.id)),
+    [group.members]
+  );
+  const availableConnections = useMemo(() => {
+    const query = addUsername.trim().toLowerCase();
+
+    const scoreUsername = (username: string) => {
+      const value = username.toLowerCase();
+      if (!query) return 1;
+      if (value === query) return 100;
+      if (value.startsWith(query)) return 80 - (value.length - query.length);
+      if (value.includes(query)) return 60 - value.indexOf(query);
+
+      let queryIndex = 0;
+      let score = 0;
+      for (let valueIndex = 0; valueIndex < value.length && queryIndex < query.length; valueIndex += 1) {
+        if (value[valueIndex] === query[queryIndex]) {
+          queryIndex += 1;
+          score += 2;
+        }
+      }
+
+      return queryIndex === query.length ? score : 0;
+    };
+
+    return (connectionsData?.connections ?? [])
+      .filter((connection) => !existingMemberIds.has(connection.id))
+      .map((connection) => ({ connection, score: scoreUsername(connection.username) }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score || a.connection.username.localeCompare(b.connection.username))
+      .slice(0, 6)
+      .map(({ connection }) => connection);
+  }, [addUsername, connectionsData?.connections, existingMemberIds]);
+
+  const handleAddMember = () => {
+    const username = addUsername.trim();
+    if (!username) return;
+    addGroupMember({ variables: { groupId: group.id, username } });
+  };
 
   return (
     <>
@@ -92,13 +187,58 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, onClose, ope
                   <LinkIcon size={18} />
                   <span className="text-sm font-semibold">Copy Invite Link</span>
                 </button>
-                <button 
-                  onClick={() => showToast("Add member search UI is a V2 feature", "info")}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] transition-colors duration-150"
-                >
-                  <UserPlus size={18} />
-                  <span className="text-sm font-semibold">Add Member</span>
-                </button>
+                <div className="px-4 py-3 rounded-xl bg-[#F0F8FF] border border-[#D6E8F5]">
+                  <div className="flex items-center gap-2 text-[#1A3A6B] mb-2">
+                    <UserPlus size={18} />
+                    <span className="text-sm font-semibold">Add Member</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        className="w-full rounded-lg border border-[#D6E8F5] bg-white px-3 py-2 text-sm font-medium text-[#0A0A0A] placeholder:text-[#6B7A99] focus:outline-none focus:border-[#BAD9F5] focus:ring-2 focus:ring-[#E1F0FF]"
+                        placeholder="Search connections"
+                        value={addUsername}
+                        onChange={(event) => setAddUsername(event.target.value)}
+                        onFocus={() => setMemberSearchFocused(true)}
+                        onBlur={() => setMemberSearchFocused(false)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleAddMember();
+                          }
+                        }}
+                        disabled={addingMember}
+                      />
+                      {memberSearchFocused && availableConnections.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-lg border border-[#D6E8F5] bg-white shadow-xl z-50">
+                          {availableConnections.map((connection) => (
+                            <button
+                              key={connection.id}
+                              type="button"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#E1F0FF] transition-colors"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                setAddUsername(connection.username);
+                              }}
+                            >
+                              <Avatar src={connection.avatarUrl} name={connection.username} size="sm" />
+                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#0A0A0A]">
+                                {connection.username}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="rounded-lg bg-[#1ABC9C] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#17a589] disabled:opacity-50"
+                      onClick={handleAddMember}
+                      disabled={addingMember || addUsername.trim().length === 0}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
               </>
             )}
 

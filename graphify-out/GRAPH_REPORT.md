@@ -1,12 +1,12 @@
-# Graph Report - yapper  (2026-05-01)
+# Graph Report - yapper  (2026-05-02)
 
 ## Corpus Check
-- 93 files · ~41,197 words
+- 93 files · ~41,891 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 232 nodes · 196 edges · 11 communities detected
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 20 edges (avg confidence: 0.8)
+- 235 nodes · 201 edges · 11 communities detected
+- Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -15,7 +15,7 @@
 - [[_COMMUNITY_Community 2|Community 2]]
 - [[_COMMUNITY_Community 3|Community 3]]
 - [[_COMMUNITY_Community 4|Community 4]]
-- [[_COMMUNITY_Community 6|Community 6]]
+- [[_COMMUNITY_Community 5|Community 5]]
 - [[_COMMUNITY_Community 7|Community 7]]
 - [[_COMMUNITY_Community 8|Community 8]]
 - [[_COMMUNITY_Community 9|Community 9]]
@@ -53,8 +53,8 @@ Cohesion: 0.19
 Nodes (16): decryptMessages(), deriveRoomKey(), E2EEKeyMissingError, exportRoomKey(), generateAndStoreGroupKey(), generateKeyPair(), generateRoomKey(), getDMRoomKey() (+8 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.2
-Nodes (6): emitRealtimeMessage(), toMsgShape(), toUserShape(), main(), setIO(), tryGetIO()
+Cohesion: 0.18
+Nodes (6): encryptMessage(), handleKeyDown(), handleSend(), join(), usePresence(), validateInput()
 
 ### Community 2 - "Community 2"
 Cohesion: 0.18
@@ -68,21 +68,21 @@ Nodes (7): validateSession(), verifyToken(), deleteSession(), getSession(), lega
 Cohesion: 0.22
 Nodes (4): generateUserKeyPair(), loadPrivateKey(), savePrivateKey(), initUserKeys()
 
-### Community 6 - "Community 6"
+### Community 5 - "Community 5"
+Cohesion: 0.2
+Nodes (6): emitRealtimeMessage(), toMsgShape(), toUserShape(), main(), setIO(), tryGetIO()
+
+### Community 7 - "Community 7"
 Cohesion: 0.42
 Nodes (8): detectAndAlertStaleShards(), getRoomKeyHealth(), markShardAcknowledged(), markShardDecrypted(), markShardDelivered(), pushHealthUpdateToAdmins(), redeliverShard(), getIO()
 
-### Community 7 - "Community 7"
+### Community 8 - "Community 8"
 Cohesion: 0.29
 Nodes (3): isConnected(), requireConnection(), requireConnectionGuard()
 
-### Community 8 - "Community 8"
+### Community 9 - "Community 9"
 Cohesion: 0.43
 Nodes (5): handleLogout(), disconnectSocket(), getAuthPayload(), getSocket(), reconnectSocket()
-
-### Community 9 - "Community 9"
-Cohesion: 0.4
-Nodes (3): encryptMessage(), handleKeyDown(), handleSend()
 
 ### Community 10 - "Community 10"
 Cohesion: 0.4
@@ -99,9 +99,7 @@ Nodes (1): handleSubmit()
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `decryptMessages()` connect `Community 0` to `Community 5`?**
-  _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `getIO()` connect `Community 6` to `Community 1`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
-- **Why does `encryptMessage()` connect `Community 9` to `Community 0`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
+- **Why does `encryptMessage()` connect `Community 1` to `Community 0`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
+- **Why does `decryptMessages()` connect `Community 0` to `Community 6`?**
+  _High betweenness centrality (0.011) - this node is a cross-community bridge._
