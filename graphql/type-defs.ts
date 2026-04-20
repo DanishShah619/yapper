@@ -38,6 +38,7 @@ export const typeDefs = `#graphql
     email: String!
     username: String!
     avatarUrl: String
+    publicKey: String
     createdAt: DateTime!
   }
 
@@ -157,7 +158,7 @@ export const typeDefs = `#graphql
     connectionRequests: [Friendship!]!
     conversation(id: ID!): Room
     conversations: [Room!]!
-    messages(roomId: ID!, cursor: String, limit: Int): MessageConnection!
+    messages(roomId: ID, groupId: ID, cursor: String, limit: Int): MessageConnection!
     group(id: ID!): Group
     groups: [Group!]!
     peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
@@ -171,7 +172,9 @@ export const typeDefs = `#graphql
     sendConnectionRequest(username: String!): Friendship!
     respondToConnectionRequest(requestId: ID!, accept: Boolean!): Friendship!
     removeConnection(userId: ID!): Boolean!
+    updatePublicKey(publicKey: String!): User!
     createRoom(name: String!, type: RoomType!): Room!
+    createDM(username: String!): Room!
     inviteToRoom(roomId: ID!, username: String!): RoomMember!
     generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
     sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!

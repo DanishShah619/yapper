@@ -10,6 +10,7 @@ import {
   ShieldCheck, LogOut, Trash2, Link2, Send, Crown,
   VolumeX, Volume2, AlertCircle, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { getOrCreateGroupKey, encryptMessage, decryptMessage } from '@/lib/e2ee';
 
 // ─── GraphQL ────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,18 @@ const GROUP_QUERY = gql`
 const SEND_MESSAGE = gql`
   mutation SendMessage($groupId: ID!, $encryptedPayload: String!, $ephemeral: Boolean) {
     sendMessage(groupId: $groupId, encryptedPayload: $encryptedPayload, ephemeral: $ephemeral) {
-      id groupId sender { id username } encryptedPayload ephemeral expiresAt createdAt
+      id groupId sender { id username avatarUrl } encryptedPayload ephemeral expiresAt createdAt
+    }
+  }
+`;
+
+const MESSAGES_QUERY = gql`
+  query Messages($groupId: ID!) {
+    messages(groupId: $groupId, limit: 100) {
+      edges {
+        id encryptedPayload ephemeral createdAt
+        sender { id username avatarUrl }
+      }
     }
   }
 `;
@@ -89,6 +101,7 @@ interface LocalMessage {
   text: string;
   ephemeral: boolean;
   createdAt: string;
+  decryptionFailed?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -115,7 +128,14 @@ export default function GroupChatPage() {
   const [addSuccess, setAddSuccess] = useState('');
   const [settingsTab, setSettingsTab] = useState<'members' | 'admin'>('members');
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [groupKey, setGroupKey] = useState<CryptoKey | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize group key
+  useEffect(() => {
+    if (!groupId) return;
+    getOrCreateGroupKey(groupId).then(setGroupKey).catch(e => console.error('E2E Key Error', e));
+  }, [groupId]);
 
   useEffect(() => {
     const t = localStorage.getItem('nexchat_token');
@@ -123,11 +143,52 @@ export default function GroupChatPage() {
     setToken(t);
   }, [router]);
 
-  const { data: meData } = useQuery(ME_QUERY, { skip: !token });
+  const { data: meData } = useQuery<{ me: any }>(ME_QUERY, { skip: !token });
   const { data, loading, refetch } = useQuery<{ group: Group }>(GROUP_QUERY, {
     variables: { id: groupId },
     skip: !token || !groupId,
   });
+
+  const { data: msgData, refetch: refetchMessages } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
+    variables: { groupId },
+    skip: !token || !groupId || !groupKey,
+    pollInterval: 3000,
+  });
+
+  // Decrypt incoming messages
+  useEffect(() => {
+    if (!msgData?.messages?.edges || !groupKey) return;
+    
+    (async () => {
+      const decrypted = await Promise.all(
+        msgData.messages.edges.map(async (m: any) => {
+          try {
+            const text = await decryptMessage(m.encryptedPayload, groupKey);
+            return {
+              id: m.id,
+              senderId: m.sender.id,
+              senderUsername: m.sender.username,
+              text,
+              ephemeral: m.ephemeral,
+              createdAt: m.createdAt,
+              decryptionFailed: false
+            };
+          } catch (e) {
+            return {
+              id: m.id,
+              senderId: m.sender.id,
+              senderUsername: m.sender.username,
+              text: '[Decryption failed]',
+              ephemeral: m.ephemeral,
+              createdAt: m.createdAt,
+              decryptionFailed: true
+            };
+          }
+        })
+      );
+      setMessages(decrypted);
+    })();
+  }, [msgData, groupKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -139,20 +200,7 @@ export default function GroupChatPage() {
   const isAdmin = myMembership?.role === 'ADMIN';
 
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE, {
-    onCompleted: (res) => {
-      const msg = res.sendMessage;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: msg.id,
-          senderId: msg.sender.id,
-          senderUsername: msg.sender.username,
-          text: atob(msg.encryptedPayload), // stub decrypt
-          ephemeral: msg.ephemeral,
-          createdAt: msg.createdAt,
-        },
-      ]);
-    },
+    onCompleted: () => refetchMessages(),
     onError: (e) => console.error(e),
   });
 
@@ -178,17 +226,36 @@ export default function GroupChatPage() {
     onError: (e) => alert(e.message),
   });
   const [generateInvite] = useMutation(GENERATE_INVITE, {
-    onCompleted: (res) => setInviteUrl(window.location.origin + res.generateInviteLink.url),
+    onCompleted: (res: any) => setInviteUrl(window.location.origin + res.generateInviteLink.url),
     onError: (e) => alert(e.message),
   });
   const [updatePolicy] = useMutation(UPDATE_POLICY, { onCompleted: () => refetch() });
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const encoded = btoa(input.trim()); // stub encrypt
-    sendMessage({ variables: { groupId, encryptedPayload: encoded, ephemeral } });
+    if (!input.trim() || !groupKey || !me) return;
+    const payload = input.trim();
     setInput('');
+    try {
+      const encryptedPayload = await encryptMessage(payload, groupKey);
+      
+      // Optimistic locally
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `temp-${Date.now()}`,
+          senderId: me.id,
+          senderUsername: me.username,
+          text: payload,
+          ephemeral,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      await sendMessage({ variables: { groupId, encryptedPayload, ephemeral } });
+    } catch (e: any) {
+      alert(`Encryption failed: ${e.message}`);
+    }
   };
 
   const handleAddMember = (e: React.FormEvent) => {

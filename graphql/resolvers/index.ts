@@ -2,6 +2,7 @@ import { authResolvers } from './auth';
 import { userResolvers } from './user';
 import { stubResolvers } from './stubs';
 import { groupResolvers } from './groups';
+import { messagingResolvers } from './messaging';
 import { GraphQLScalarType, Kind } from 'graphql';
 
 // Custom DateTime scalar
@@ -9,47 +10,57 @@ const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
   description: 'A date-time string in ISO 8601 format',
   serialize(value: unknown): string {
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    if (typeof value === 'string') {
-      return new Date(value).toISOString();
-    }
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'string') return new Date(value).toISOString();
     throw new Error('DateTime scalar: invalid value');
   },
   parseValue(value: unknown): Date {
-    if (typeof value === 'string') {
-      return new Date(value);
-    }
+    if (typeof value === 'string') return new Date(value);
     throw new Error('DateTime scalar: invalid input');
   },
   parseLiteral(ast): Date {
-    if (ast.kind === Kind.STRING) {
-      return new Date(ast.value);
-    }
+    if (ast.kind === Kind.STRING) return new Date(ast.value);
     throw new Error('DateTime scalar: invalid literal');
   },
 });
 
-// Merge all resolver maps
+// ─── Resolver merge — spread order matters (later spreads WIN for duplicate keys) ─────
+//
+// Precedence (lowest → highest):
+//   stubs < messaging < user(Phase2) < auth(Phase1) < groups(Phase5)
+//
+// This ensures:
+//   1. Messaging.sendMessage wins over the deleted stubs
+//   2. User.Mutation wins over messaging (Phase2 social > Phase3 messaging for any overlap)
+//   3. Groups always win last (Phase5 has dedicated group mutations)
+
 export const resolvers = {
   DateTime: DateTimeScalar,
 
   Query: {
+    // Phase 1-2: Auth + social graph queries + V2 stubs
     ...userResolvers.Query,
+    // Phase 3: Messaging queries (conversations, conversation, messages) — override user stubs
+    ...messagingResolvers.Query,
   },
 
   Mutation: {
+    // Phase 1: Auth
     ...authResolvers.Mutation,
-    // Phase 2 connection mutations from userResolvers (respondToConnectionRequest, sendConnectionRequest)
-    ...userResolvers.Mutation,
-    // Phase 3-4 room/message/video stubs
+    // Phase 4 video + V2 stubs
     ...stubResolvers.Mutation,
-    // Phase 5 group mutations (override any stubs for group mutations)
+    // Phase 3: Messaging (createRoom, createDM, inviteToRoom, sendMessage, updatePublicKey)
+    ...messagingResolvers.Mutation,
+    // Phase 2: Social graph (sendConnectionRequest, respondToConnectionRequest, removeConnection)
+    ...userResolvers.Mutation,
+    // Phase 5: Group mutations — highest precedence, always wins
     ...groupResolvers.Mutation,
   },
 
   Subscription: {
+    // Phase 3: messageReceived
+    ...messagingResolvers.Subscription,
+    // Phase 5: groupMemberUpdated
     ...groupResolvers.Subscription,
   },
 };

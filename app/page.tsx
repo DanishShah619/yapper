@@ -136,11 +136,11 @@ export default function DashboardPage() {
                 <h3>Messages</h3>
                 <p>E2E encrypted DMs — coming in Phase 3</p>
               </div>
-              <div className="dashboard-card">
-                <div className="dashboard-card-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>👥</div>
-                <h3>Connections</h3>
-                <p>Social graph — coming in Phase 2</p>
-              </div>
+              <a href="/connections" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(99, 102, 241, 0.3)', background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06))' }}>
+                <div className="dashboard-card-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>👥</div>
+                <h3 style={{ color: '#818cf8' }}>Connections <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(99,102,241,0.15)', color: '#818cf8', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>
+                <p>Find friends, send and accept connection requests. Click to open.</p>
+              </a>
               <a href="/groups" className="dashboard-card" style={{ textDecoration: 'none', display: 'block', borderColor: 'rgba(26, 188, 156, 0.3)', background: 'linear-gradient(135deg, rgba(26,188,156,0.08), rgba(37,99,235,0.06))' }}>
                 <div className="dashboard-card-icon" style={{ background: 'rgba(26, 188, 156, 0.15)', color: '#1ABC9C' }}>🏠</div>
                 <h3 style={{ color: '#1ABC9C' }}>Groups <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(26,188,156,0.15)', color: '#1ABC9C', padding: '2px 6px', borderRadius: 999, marginLeft: 4 }}>LIVE</span></h3>

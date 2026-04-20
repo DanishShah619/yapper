@@ -1,19 +1,233 @@
-import sodium from 'libsodium-wrappers';
+/**
+ * lib/e2ee.ts — Client-Side End-to-End Encryption Engine
+ *
+ * Uses the Web Crypto API (native in browsers + Node.js 18+):
+ *   • AES-GCM 256-bit  — message and file encryption (PRD NFR-1)
+ *   • ECDH P-256        — DM key derivation (PRD task 3.1.4)
+ *
+ * The server only ever sees and stores encrypted ciphertext — it is a
+ * blind relay and storage layer. Private keys NEVER leave the device.
+ *
+ * Tasks 3.1.1 – 3.1.4 (replaces incorrect libsodium implementation — B-05 fix)
+ */
 
-export async function encryptMessage(plaintext: string, recipientPublicKey: string, senderPrivateKey: string): Promise<string> {
-  await sodium.ready;
-  const messageBytes = sodium.from_string(plaintext);
-  const recipientKey = sodium.from_base64(recipientPublicKey);
-  const senderKey = sodium.from_base64(senderPrivateKey);
-  const encrypted = sodium.crypto_box_seal(messageBytes, recipientKey);
-  return sodium.to_base64(encrypted);
+// ─── Local storage key namespaces ────────────────────────────────────────────
+const NS_ROOM_KEY = 'nexchat:roomKey:';
+const NS_PRIV_KEY = 'nexchat:myPrivateKey';
+const NS_PUB_KEY  = 'nexchat:myPublicKey';
+
+// ─── AES-GCM Room Key ─────────────────────────────────────────────────────────
+
+/** Generate a fresh AES-GCM 256-bit symmetric key for a room or group. */
+export async function generateRoomKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
-export async function decryptMessage(ciphertext: string, recipientPrivateKey: string, recipientPublicKey: string): Promise<string> {
-  await sodium.ready;
-  const cipherBytes = sodium.from_base64(ciphertext);
-  const privKey = sodium.from_base64(recipientPrivateKey);
-  const pubKey = sodium.from_base64(recipientPublicKey);
-  const decrypted = sodium.crypto_box_seal_open(cipherBytes, pubKey, privKey);
-  return sodium.to_string(decrypted);
+/**
+ * Export a CryptoKey to a base64 string (JSON Web Key → base64).
+ * Used for localStorage serialisation only — never transmitted to the server.
+ */
+export async function exportRoomKey(key: CryptoKey): Promise<string> {
+  const jwk = await crypto.subtle.exportKey('jwk', key);
+  return btoa(JSON.stringify(jwk));
+}
+
+/** Import a base64-serialised room key back to a CryptoKey. */
+export async function importRoomKey(base64: string): Promise<CryptoKey> {
+  const jwk = JSON.parse(atob(base64)) as JsonWebKey;
+  return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+
+// ─── Message Encryption ───────────────────────────────────────────────────────
+
+/**
+ * Encrypt a UTF-8 plaintext string with AES-GCM.
+ * Output format: base64( IV[12 bytes] || ciphertext )
+ * The 12-byte nonce is randomly generated per message (PRD NFR-1).
+ */
+export async function encryptMessage(plaintext: string, key: CryptoKey): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+
+  // Prepend IV, then base64-encode the combined buffer
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+
+  return btoa(String.fromCharCode(...combined));
+}
+
+/**
+ * Decrypt a base64( IV || ciphertext ) payload produced by encryptMessage.
+ * Returns the original UTF-8 plaintext.
+ */
+export async function decryptMessage(ciphertext: string, key: CryptoKey): Promise<string> {
+  const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const data = combined.slice(12);
+
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return new TextDecoder().decode(decrypted);
+}
+
+// ─── File Encryption ──────────────────────────────────────────────────────────
+
+/**
+ * Encrypt an ArrayBuffer (file contents) using AES-GCM.
+ * Returns an ArrayBuffer with a random 12-byte IV prepended.
+ */
+export async function encryptFile(data: ArrayBuffer, key: CryptoKey): Promise<ArrayBuffer> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return combined.buffer;
+}
+
+/**
+ * Decrypt an ArrayBuffer produced by encryptFile.
+ */
+export async function decryptFile(data: ArrayBuffer, key: CryptoKey): Promise<ArrayBuffer> {
+  const combined = new Uint8Array(data);
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+}
+
+// ─── ECDH Key Pair ────────────────────────────────────────────────────────────
+
+/**
+ * Generate an ECDH P-256 key pair.
+ * Returns base64-encoded JWK strings for both public and private keys.
+ *
+ * The public key is uploaded to the server (stored in user.publicKey).
+ * The private key NEVER leaves the device — stored in localStorage only.
+ *
+ * Task 3.1.4
+ */
+export async function generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey']);
+
+  const [pubJwk, privJwk] = await Promise.all([
+    crypto.subtle.exportKey('jwk', pair.publicKey),
+    crypto.subtle.exportKey('jwk', pair.privateKey),
+  ]);
+
+  return {
+    publicKey: btoa(JSON.stringify(pubJwk)),
+    privateKey: btoa(JSON.stringify(privJwk)),
+  };
+}
+
+/**
+ * Derive a shared AES-GCM room key from this user's ECDH private key and
+ * the other party's ECDH public key.
+ *
+ * ECDH property: ECDH(A.priv, B.pub) === ECDH(B.priv, A.pub)
+ * Both parties independently derive the same key — no key material is transmitted.
+ */
+export async function deriveRoomKey(
+  myPrivateKeyBase64: string,
+  theirPublicKeyBase64: string
+): Promise<CryptoKey> {
+  const myPrivJwk  = JSON.parse(atob(myPrivateKeyBase64)) as JsonWebKey;
+  const theirPubJwk = JSON.parse(atob(theirPublicKeyBase64)) as JsonWebKey;
+
+  const [myPrivKey, theirPubKey] = await Promise.all([
+    crypto.subtle.importKey('jwk', myPrivJwk,  { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']),
+    crypto.subtle.importKey('jwk', theirPubJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, []),
+  ]);
+
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: theirPubKey },
+    myPrivKey,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// ─── Local Storage Helpers ────────────────────────────────────────────────────
+
+function isClient() {
+  return typeof window !== 'undefined';
+}
+
+/** Persist a room key to localStorage under `nexchat:roomKey:{roomId}`. */
+export async function storeRoomKey(roomId: string, key: CryptoKey): Promise<void> {
+  if (!isClient()) return;
+  const exported = await exportRoomKey(key);
+  localStorage.setItem(`${NS_ROOM_KEY}${roomId}`, exported);
+}
+
+/** Load a previously stored room key from localStorage. Returns null if absent. */
+export async function loadRoomKey(roomId: string): Promise<CryptoKey | null> {
+  if (!isClient()) return null;
+  const stored = localStorage.getItem(`${NS_ROOM_KEY}${roomId}`);
+  if (!stored) return null;
+  try {
+    return await importRoomKey(stored);
+  } catch {
+    localStorage.removeItem(`${NS_ROOM_KEY}${roomId}`);
+    return null;
+  }
+}
+
+/**
+ * Get or generate a symmetric room key for a group.
+ * Group keys are per-device (multi-device sync is a V2 feature).
+ */
+export async function getOrCreateGroupKey(groupId: string): Promise<CryptoKey> {
+  const cached = await loadRoomKey(groupId);
+  if (cached) return cached;
+
+  const key = await generateRoomKey();
+  await storeRoomKey(groupId, key);
+  return key;
+}
+
+/**
+ * Get or create the user's ECDH key pair from localStorage.
+ * Generates and persists a fresh pair on first call.
+ * The private key never leaves the device.
+ */
+export async function getOrCreateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
+  if (!isClient()) return { publicKey: '', privateKey: '' };
+
+  const storedPriv = localStorage.getItem(NS_PRIV_KEY);
+  const storedPub  = localStorage.getItem(NS_PUB_KEY);
+
+  if (storedPriv && storedPub) {
+    return { publicKey: storedPub, privateKey: storedPriv };
+  }
+
+  const pair = await generateKeyPair();
+  localStorage.setItem(NS_PRIV_KEY, pair.privateKey);
+  localStorage.setItem(NS_PUB_KEY,  pair.publicKey);
+  return pair;
+}
+
+/**
+ * Get or derive a DM room key via ECDH.
+ * The derived key is cached in localStorage to avoid re-derivation on every page load.
+ *
+ * @param dmRoomId      The DM room UUID (used as cache key)
+ * @param myPrivateKey  This user's ECDH private key (base64 JWK)
+ * @param theirPublicKey  Other user's ECDH public key (base64 JWK from server)
+ */
+export async function getDMRoomKey(
+  dmRoomId: string,
+  myPrivateKey: string,
+  theirPublicKey: string
+): Promise<CryptoKey> {
+  const cached = await loadRoomKey(dmRoomId);
+  if (cached) return cached;
+
+  const derived = await deriveRoomKey(myPrivateKey, theirPublicKey);
+  await storeRoomKey(dmRoomId, derived);
+  return derived;
 }

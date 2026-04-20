@@ -1,5 +1,6 @@
 import { GraphQLContext } from '@/graphql/context';
 import { v4 as uuidv4 } from 'uuid';
+import { isConnected } from '@/lib/connections';
 
 // Inline type for GroupMember rows returned by Prisma findMany
 type GroupMemberRow = { id: string; groupId: string; userId: string; role: string; mutedAt: Date | null; joinedAt: Date };
@@ -22,18 +23,10 @@ async function requireMember(groupId: string, userId: string, ctx: GraphQLContex
   return member;
 }
 
-// Helper: validate mutual connection between two users
-async function requireConnection(userAId: string, userBId: string, ctx: GraphQLContext) {
-  const connection = await ctx.prisma.friendship.findFirst({
-    where: {
-      OR: [
-        { requesterId: userAId, addresseeId: userBId, status: 'ACCEPTED' },
-        { requesterId: userBId, addresseeId: userAId, status: 'ACCEPTED' },
-      ],
-    },
-  });
-  if (!connection) throw new Error('Users are not connected — cannot add to group');
-  return connection;
+// Helper: validate mutual connection between two users (uses shared lib/connections utility)
+async function requireConnectionGuard(userAId: string, userBId: string, ctx: GraphQLContext) {
+  const connected = await isConnected(userAId, userBId, ctx.prisma as Parameters<typeof isConnected>[2]);
+  if (!connected) throw new Error('Users are not connected — cannot add to group');
 }
 
 // Full group object with relations for GraphQL return
@@ -122,7 +115,7 @@ export const groupResolvers = {
       if (invitee.id === ctx.userId) throw new Error('Cannot add yourself');
 
       // Must be a connection of the adder
-      await requireConnection(ctx.userId, invitee.id, ctx);
+      await requireConnectionGuard(ctx.userId, invitee.id, ctx);
 
       // Check not already a member
       const existing = await ctx.prisma.groupMember.findFirst({
