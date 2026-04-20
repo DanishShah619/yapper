@@ -112,12 +112,23 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  type KeyRotationSignal {
+    groupId: ID!
+    remainingMemberIds: [ID!]!
+  }
+
   type GroupMember {
     id: ID!
     user: User!
     role: MemberRole!
     mutedAt: DateTime
     joinedAt: DateTime!
+    encryptedKey: String
+  }
+
+  input WrappedKeyInput {
+    memberId: ID!
+    encryptedKey: String!
   }
 
   type VideoRoom {
@@ -163,6 +174,7 @@ export const typeDefs = `#graphql
     groups: [Group!]!
     peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
     feed(cursor: String, limit: Int): [FeedItem!]!
+    missedEphemeralMessages(roomId: ID, groupId: ID, since: Float!): [Message!]!
   }
 
   type Mutation {
@@ -184,6 +196,7 @@ export const typeDefs = `#graphql
     removeGroupMember(groupId: ID!, userId: ID!): Boolean!
     promoteGroupMember(groupId: ID!, userId: ID!): GroupMember!
     transferGroupOwnership(groupId: ID!, userId: ID!): Group!
+    submitRotatedGroupKeys(groupId: ID!, wrappedKeys: [WrappedKeyInput!]!): Boolean!
     lockGroup(groupId: ID!): Group!
     deleteGroup(groupId: ID!): Boolean!
     muteGroupMember(groupId: ID!, userId: ID!): GroupMember!
@@ -204,5 +217,6 @@ export const typeDefs = `#graphql
     participantRejected(videoRoomId: ID!): Boolean!
     roomLocked(videoRoomId: ID!): Boolean!
     groupMemberUpdated(groupId: ID!): GroupMember!
+    groupKeyRotationRequired(groupId: ID!): KeyRotationSignal!
   }
 `;

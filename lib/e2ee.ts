@@ -177,14 +177,81 @@ export async function loadRoomKey(roomId: string): Promise<CryptoKey | null> {
   }
 }
 
+export class E2EEKeyMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'E2EEKeyMissingError';
+  }
+}
+
 /**
- * Get or generate a symmetric room key for a group.
- * Group keys are per-device (multi-device sync is a V2 feature).
+ * Unwrap a group AES-GCM key derived from a pairwise-wrapped payload.
  */
-export async function getOrCreateGroupKey(groupId: string): Promise<CryptoKey> {
+export async function unwrapGroupKey(
+  wrappedKeyB64: string,
+  senderPublicKeyB64: string,
+  myPrivateKeyB64: string
+): Promise<CryptoKey> {
+  const combined = new Uint8Array(Array.from(atob(wrappedKeyB64)).map(c => c.charCodeAt(0)));
+  const iv = combined.slice(0, 12);
+  const wrapped = combined.slice(12);
+
+  const sharedSecret = await deriveRoomKey(myPrivateKeyB64, senderPublicKeyB64);
+
+  return crypto.subtle.unwrapKey(
+    'raw',
+    wrapped,
+    sharedSecret,
+    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Wrap a group AES-GCM key to send to a new group member via pairwise ECDH.
+ */
+export async function wrapGroupKeyForNewMember(
+  groupKey: CryptoKey,
+  newMemberPublicKeyB64: string,
+  myPrivateKeyB64: string
+): Promise<string> {
+  const sharedSecret = await deriveRoomKey(myPrivateKeyB64, newMemberPublicKeyB64);
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrappedKey = await crypto.subtle.wrapKey(
+    'raw',
+    groupKey,
+    sharedSecret,
+    { name: 'AES-GCM', iv }
+  );
+
+  const combined = new Uint8Array([...Array.from(iv), ...Array.from(new Uint8Array(wrappedKey))]);
+  return btoa(String.fromCharCode(...combined));
+}
+
+/**
+ * Get the group key from local storage, or gracefully throw so the UI can recover.
+ */
+export async function getOrRequestGroupKey(groupId: string, encryptedKey?: string, senderPublicKey?: string): Promise<CryptoKey> {
   const cached = await loadRoomKey(groupId);
   if (cached) return cached;
 
+  if (encryptedKey && senderPublicKey) {
+    const { privateKey } = await getOrCreateKeyPair();
+    const unwrapped = await unwrapGroupKey(encryptedKey, senderPublicKey, privateKey);
+    await storeRoomKey(groupId, unwrapped);
+    return unwrapped;
+  }
+
+  throw new E2EEKeyMissingError(
+    'Your encryption key for this group has not been delivered yet. ' +
+    'Wait or ask a group admin to open the app so it can be sent to you.'
+  );
+}
+
+export async function generateAndStoreGroupKey(groupId: string): Promise<CryptoKey> {
   const key = await generateRoomKey();
   await storeRoomKey(groupId, key);
   return key;

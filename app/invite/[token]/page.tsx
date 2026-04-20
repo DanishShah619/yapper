@@ -12,23 +12,21 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   useEffect(() => {
     const run = async () => {
-      const jwt = localStorage.getItem('nexchat_token');
-      if (!jwt) {
-        // Not logged in -> redirect to login with a breadcrumb to return here
-        router.push(`/login?returnUrl=${encodeURIComponent(`/invite/${token}`)}`);
-        return;
-      }
-
       try {
         const res = await fetch(`/api/invite/${token}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
           },
+          // Cookie takes care of auth for API proxy OR backend.
         });
 
         const data = await res.json();
+
+        if (res.status === 401) {
+           router.push(`/login?returnUrl=${encodeURIComponent(`/invite/${token}`)}`);
+           return;
+        }
 
         if (!res.ok) {
           setError(data.error || 'Failed to process invite link');

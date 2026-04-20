@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import Redis from 'ioredis';
+import { cookies } from 'next/headers';
+import { validateCsrfToken } from '@/lib/csrf';
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
@@ -10,13 +12,17 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    if (!validateCsrfToken(request)) {
+      return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+    }
+
     const { token } = await params;
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const jwtToken = cookies().get('nexchat_token')?.value;
+
+    if (!jwtToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const jwtToken = authHeader.split(' ')[1];
     const payload = verifyToken(jwtToken);
     if (!payload?.userId) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });

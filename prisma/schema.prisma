@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────
@@ -165,6 +164,7 @@ model GroupMember {
   role     MemberRole @default(MEMBER)
   mutedAt  DateTime?
   joinedAt DateTime   @default(now())
+  encryptedKey String?
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)

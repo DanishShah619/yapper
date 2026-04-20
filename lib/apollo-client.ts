@@ -10,18 +10,23 @@ import { setContext } from '@apollo/client/link/context';
 
 const httpLink = createHttpLink({
   uri: '/api/graphql',
+  credentials: 'include', // sends the httpOnly nexchat_token cookie
 });
 
-// Inject Authorization header from stored token
-const authLink = setContext((_, { headers }) => {
-  // Read token from memory/cookie
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('nexchat_token') : null;
+function getCsrfToken(): string {
+  if (typeof window === 'undefined') return '';
+  return document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrf_token='))
+    ?.split('=')[1] ?? '';
+}
 
+const authLink = setContext((_, { headers }) => {
   return {
     headers: {
       ...headers,
-      authorization: token ? `Bearer ${token}` : '',
+      'x-csrf-token': getCsrfToken(), // CSRF header — validated server-side
+      // No Authorization header — JWT is sent automatically via httpOnly cookie
     },
   };
 });

@@ -415,31 +415,32 @@ function RequestsTab({ myId }: { myId: string }) {
 
 export default function ConnectionsPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('search');
 
-  useEffect(() => {
-    const t = localStorage.getItem('nexchat_token');
-    if (!t) { router.push('/login'); return; }
-    setToken(t);
-  }, [router]);
-
-  const { data: meData } = useQuery<{ me: User }>(ME_QUERY, { skip: !token });
+  const { data: meData, error: meError, loading: meLoading } = useQuery<{ me: User }>(ME_QUERY);
   const me: User | undefined = meData?.me;
 
-  const { data: requestsData } = useQuery<{ connectionRequests: FriendshipRequest[] }>(
+  useEffect(() => {
+    if (meError) {
+      router.push('/login');
+    }
+  }, [meError, router]);
+
+  const { data: requestsData, loading: requestsLoading } = useQuery<{ connectionRequests: FriendshipRequest[] }>(
     REQUESTS_QUERY,
-    { skip: !token, pollInterval: 30000 } // poll every 30s for new requests
+    { pollInterval: 30000 } // poll every 30s for new requests
   );
   const pendingCount = requestsData?.connectionRequests?.length ?? 0;
 
-  if (!token) {
+  if (meLoading || requestsLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <Loader2 size={28} className="animate-spin text-indigo-400" />
       </div>
     );
   }
+
+  if (meError) return null;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'search', label: 'Search', icon: <Search size={15} /> },

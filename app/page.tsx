@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useQuery } from '@apollo/client/react';
+import { useEffect } from 'react';
+import { useQuery, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 
@@ -29,27 +29,26 @@ interface MeData {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const client = useApolloClient();
 
-  useEffect(() => {
-    const t = localStorage.getItem('nexchat_token');
-    if (!t) {
+  const { data, loading, error } = useQuery<MeData>(ME_QUERY);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      client.clearStore();
       router.push('/login');
-      return;
     }
-    setToken(t);
-  }, [router]);
-
-  const { data, loading, error } = useQuery<MeData>(ME_QUERY, {
-    skip: !token,
-  });
-
-  const handleLogout = () => {
-    localStorage.removeItem('nexchat_token');
-    router.push('/login');
   };
 
-  if (!token || loading) {
+  useEffect(() => {
+    if (error) {
+      router.push('/login');
+    }
+  }, [error, router]);
+
+  if (loading || (!data && !error)) {
     return (
       <div className="dashboard-loading">
         <div className="dashboard-spinner" />
@@ -78,9 +77,6 @@ export default function DashboardPage() {
   }
 
   if (error) {
-    // Token invalid — redirect to login
-    localStorage.removeItem('nexchat_token');
-    router.push('/login');
     return null;
   }
 

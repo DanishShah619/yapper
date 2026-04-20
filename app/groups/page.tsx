@@ -217,19 +217,16 @@ function CreateGroupModal({ onClose, onCreated }: CreateGroupModalProps) {
 
 export default function GroupsPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    const t = localStorage.getItem('nexchat_token');
-    if (!t) { router.push('/login'); return; }
-    setToken(t);
-  }, [router]);
+  const { data: meData } = useQuery(ME_QUERY);
+  const { data, loading, refetch, error } = useQuery<{ groups: Group[] }>(GROUPS_QUERY);
 
-  const { data: meData } = useQuery(ME_QUERY, { skip: !token });
-  const { data, loading, refetch } = useQuery<{ groups: Group[] }>(GROUPS_QUERY, {
-    skip: !token,
-  });
+  useEffect(() => {
+    if (error) {
+      router.push('/login');
+    }
+  }, [error, router]);
 
   const groups = data?.groups ?? [];
   const me = meData?.me;
@@ -239,13 +236,15 @@ export default function GroupsPage() {
   const getMyRole = (group: Group) =>
     group.members.find((m) => m.user.id === me?.id)?.role ?? 'MEMBER';
 
-  if (!token || loading) {
+  if (loading || (!data && !error)) {
     return (
       <div className="min-h-screen bg-[#F0F8FF] flex items-center justify-center">
         <div className="w-8 h-8 border-3 border-[#BAD9F5] border-t-[#1ABC9C] rounded-full animate-spin" />
       </div>
     );
   }
+
+  if (error) return null;
 
   return (
     <div className="min-h-screen bg-[#F0F8FF]">

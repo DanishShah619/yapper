@@ -1,30 +1,10 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface RegisterData {
-  register: {
-    token: string;
-    user: { id: string; email: string; username: string };
-  };
-}
-
-const REGISTER_MUTATION = gql`
-  mutation Register($email: String!, $username: String!, $password: String!) {
-    register(email: $email, username: $username, password: $password) {
-      token
-      user {
-        id
-        email
-        username
-      }
-    }
-  }
-`;
+// GraphQL mutation replaced with REST proxy
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,15 +16,7 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
 
-  const [register, { loading }] = useMutation<RegisterData>(REGISTER_MUTATION, {
-    onCompleted: (data: RegisterData) => {
-      localStorage.setItem('nexchat_token', data.register.token);
-      router.push('/');
-    },
-    onError: (err: Error) => {
-      setError(err.message);
-    },
-  });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,13 +37,29 @@ export default function RegisterPage() {
       return;
     }
 
-    await register({
-      variables: {
-        email: formData.email,
-        username: formData.username,
-        password: formData.password,
-      },
-    });
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          username: formData.username,
+          password: formData.password,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
   };
 
   return (

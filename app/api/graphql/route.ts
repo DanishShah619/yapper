@@ -7,6 +7,8 @@ import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
 import { extractToken, validateSession } from '@/lib/auth';
 import { GraphQLContext, pubsub } from '@/graphql/context';
+import { cookies } from 'next/headers';
+import { validateCsrfToken } from '@/lib/csrf';
 
 const server = new ApolloServer<GraphQLContext>({
   typeDefs,
@@ -16,9 +18,8 @@ const server = new ApolloServer<GraphQLContext>({
 
 const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(server, {
   context: async (req: NextRequest): Promise<GraphQLContext> => {
-    // Extract JWT from Authorization header
-    const authHeader = req.headers.get('authorization');
-    const token = extractToken(authHeader);
+    // Extract JWT from secure httpOnly cookie
+    const token = cookies().get('nexchat_token')?.value || extractToken(req.headers.get('authorization'));
 
     // Validate token against Redis session cache
     let userId: string | null = null;
@@ -48,5 +49,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!validateCsrfToken(request)) {
+    return Response.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  }
   return handler(request);
 }

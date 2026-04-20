@@ -1,55 +1,40 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
+// GraphQL mutation removed, using REST proxy now.
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      token
-      user {
-        id
-        email
-        username
-      }
-    }
-  }
-`;
-
-interface LoginData {
-  login: {
-    token: string;
-    user: { id: string; email: string; username: string };
-  };
-}
 
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
 
-  const [login, { loading }] = useMutation<LoginData>(LOGIN_MUTATION, {
-    onCompleted: (data: LoginData) => {
-      localStorage.setItem('nexchat_token', data.login.token);
-      router.push('/');
-    },
-    onError: (err: Error) => {
-      setError(err.message);
-    },
-  });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    await login({
-      variables: {
-        email: formData.email,
-        password: formData.password,
-      },
-    });
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // No localStorage -- handled via httpOnly cookies
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
   };
 
   return (

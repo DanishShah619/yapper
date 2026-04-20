@@ -182,6 +182,27 @@ export const messagingResolvers = {
         pageInfo: { hasNextPage, endCursor },
       };
     },
+
+    missedEphemeralMessages: async (
+      _parent: unknown,
+      args: { roomId?: string; groupId?: string; since: number },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+      if (!args.roomId && !args.groupId) throw new Error('Either roomId or groupId is required');
+
+      const bufferKey = args.roomId ? `ephemeral:room:${args.roomId}` : `ephemeral:group:${args.groupId}`;
+      const rawMessages = await ctx.redis.lrange(bufferKey, 0, -1);
+
+      return rawMessages
+        .map((raw) => JSON.parse(raw))
+        .filter((msg) => {
+          const sentAt = new Date(msg.createdAt).getTime();
+          const expires = new Date(msg.expiresAt).getTime();
+          return sentAt > args.since && expires > Date.now();
+        })
+        .reverse(); // LPUSH prepends, so reversing gives chronological order
+    },
   },
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
@@ -408,6 +429,13 @@ export const messagingResolvers = {
         };
 
         await ctx.redis.set(`ephmsg:${id}`, JSON.stringify(msg), 'EX', ttl);
+        
+        // Push to buffer for disconnected clients (max 60s replay window)
+        const bufferKey = args.roomId ? `ephemeral:room:${args.roomId}` : `ephemeral:group:${args.groupId}`;
+        await ctx.redis.lpush(bufferKey, JSON.stringify(msg));
+        const bufferTtl = Math.min(ttl, 60);
+        await ctx.redis.expire(bufferKey, bufferTtl);
+
         ctx.pubsub.publish(channel, msg);
         return msg;
       }

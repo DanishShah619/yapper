@@ -154,6 +154,14 @@ export const groupResolvers = {
         removed: true,
       });
 
+      const remaining = await ctx.prisma.groupMember.findMany({
+        where: { groupId: args.groupId },
+      });
+      ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
+        groupId: args.groupId,
+        remainingMemberIds: remaining.map((m) => m.userId),
+      });
+
       return true;
     },
 
@@ -244,6 +252,29 @@ export const groupResolvers = {
       return updatedMember;
     },
 
+    submitRotatedGroupKeys: async (
+      _parent: unknown,
+      args: { groupId: string; wrappedKeys: { memberId: string; encryptedKey: string }[] },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+      
+      // We don't enforce requireAdmin strictly because sometimes a regular member 
+      // with memberAddPolicy=open might wrap keys when adding someone.
+      // But typically this is an admin action for rotation.
+      await requireMember(args.groupId, ctx.userId, ctx);
+
+      const updates = args.wrappedKeys.map((wk) =>
+        ctx.prisma.groupMember.update({
+          where: { groupId_userId: { groupId: args.groupId, userId: wk.memberId } },
+          data: { encryptedKey: wk.encryptedKey },
+        })
+      );
+      
+      await ctx.prisma.$transaction(updates);
+      return true;
+    },
+
     leaveGroup: async (
       _parent: unknown,
       args: { groupId: string },
@@ -277,6 +308,14 @@ export const groupResolvers = {
         id: ctx.userId,
         groupId: args.groupId,
         left: true,
+      });
+
+      const remainingAfterLeave = await ctx.prisma.groupMember.findMany({
+        where: { groupId: args.groupId },
+      });
+      ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
+        groupId: args.groupId,
+        remainingMemberIds: remainingAfterLeave.map((m) => m.userId),
       });
 
       return true;
@@ -364,6 +403,13 @@ export const groupResolvers = {
         });
         if (!member) throw new Error('Not a member of this group');
         return ctx.pubsub.asyncIterator(`groupMemberUpdated:${args.groupId}`);
+      },
+      resolve: (payload: unknown) => payload,
+    },
+    groupKeyRotationRequired: {
+      subscribe: async (_parent: unknown, args: { groupId: string }, ctx: GraphQLContext) => {
+        if (!ctx.userId) throw new Error('Not authenticated');
+        return ctx.pubsub.asyncIterator(`groupKeyRotationRequired:${args.groupId}`);
       },
       resolve: (payload: unknown) => payload,
     },

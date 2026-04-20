@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, use } from 'react';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,6 +46,24 @@ const MESSAGES_QUERY = gql`
         id encryptedPayload ephemeral createdAt
         sender { id username avatarUrl }
       }
+    }
+  }
+`;
+
+const MESSAGE_RECEIVED_SUBSCRIPTION = gql`
+  subscription MessageReceived($roomId: ID!) {
+    messageReceived(roomId: $roomId) {
+      id encryptedPayload ephemeral createdAt
+      sender { id username avatarUrl }
+    }
+  }
+`;
+
+const MISSED_EPHEMERAL_MESSAGES_QUERY = gql`
+  query MissedEphemeralMessages($roomId: ID!, $since: Float!) {
+    missedEphemeralMessages(roomId: $roomId, since: $since) {
+      id encryptedPayload ephemeral createdAt
+      sender { id username avatarUrl }
     }
   }
 `;
@@ -148,11 +166,58 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
   }, [me, room, otherMember, isSelfDM, roomId]);
 
   // 4. Load messages
-  const { data: msgData, refetch: refetchMessages } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
+  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
     variables: { roomId, limit: 100 },
     skip: !roomId || !roomKey, // only fetch after key is ready
-    pollInterval: 3000, // naive polling until Phase 6 WebSocket
   });
+
+  const [gapWarning, setGapWarning] = useState(false);
+  const lastReceivedAt = useRef<number>(Date.now());
+  const client = useApolloClient();
+
+  useEffect(() => {
+    if (!subscribeToMore || !roomId) return;
+    const unsubscribe = subscribeToMore({
+      document: MESSAGE_RECEIVED_SUBSCRIPTION,
+      variables: { roomId },
+      updateQuery: (prev, { subscriptionData }) => {
+        if (!subscriptionData.data) return prev;
+        const newMsg = subscriptionData.data.messageReceived;
+        lastReceivedAt.current = Date.now();
+        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev;
+        return {
+          ...prev,
+          messages: {
+            ...prev.messages,
+            edges: [...(prev.messages?.edges || []), newMsg],
+          }
+        };
+      }
+    });
+    return () => unsubscribe();
+  }, [subscribeToMore, roomId]);
+
+  useEffect(() => {
+    const handleReconnect = async () => {
+      const gapMs = Date.now() - lastReceivedAt.current;
+      if (gapMs > 55000) {
+        setGapWarning(true);
+        return;
+      }
+      if (gapMs > 5000) { 
+         await client.query({
+          query: MISSED_EPHEMERAL_MESSAGES_QUERY,
+          variables: { roomId, since: lastReceivedAt.current },
+          fetchPolicy: 'network-only'
+        });
+        refetchMessages();
+      }
+      lastReceivedAt.current = Date.now();
+    };
+    
+    window.addEventListener('online', handleReconnect);
+    return () => window.removeEventListener('online', handleReconnect);
+  }, [roomId, client, refetchMessages]);
 
   // Decrypt batch of messages when query data updates
   useEffect(() => {

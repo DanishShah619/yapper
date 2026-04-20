@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,7 @@ import {
   ShieldCheck, LogOut, Trash2, Link2, Send, Crown,
   VolumeX, Volume2, AlertCircle, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { getOrCreateGroupKey, encryptMessage, decryptMessage } from '@/lib/e2ee';
+import { getOrRequestGroupKey, encryptMessage, decryptMessage, getOrCreateKeyPair, wrapGroupKeyForNewMember, generateAndStoreGroupKey } from '@/lib/e2ee';
 
 // ─── GraphQL ────────────────────────────────────────────────────────────────
 
@@ -21,8 +21,8 @@ const GROUP_QUERY = gql`
     group(id: $id) {
       id name type avatarUrl locked memberAddPolicy createdAt
       members {
-        id role mutedAt joinedAt
-        user { id username avatarUrl }
+        id role mutedAt joinedAt encryptedKey
+        user { id username avatarUrl publicKey }
       }
     }
   }
@@ -43,6 +43,24 @@ const MESSAGES_QUERY = gql`
         id encryptedPayload ephemeral createdAt
         sender { id username avatarUrl }
       }
+    }
+  }
+`;
+
+const MESSAGE_RECEIVED_SUBSCRIPTION = gql`
+  subscription MessageReceived($roomId: ID!) {
+    messageReceived(roomId: $roomId) {
+      id encryptedPayload ephemeral createdAt
+      sender { id username avatarUrl }
+    }
+  }
+`;
+
+const MISSED_EPHEMERAL_MESSAGES_QUERY = gql`
+  query MissedEphemeralMessages($groupId: ID!, $since: Float!) {
+    missedEphemeralMessages(groupId: $groupId, since: $since) {
+      id encryptedPayload ephemeral createdAt
+      sender { id username avatarUrl }
     }
   }
 `;
@@ -72,6 +90,7 @@ const DELETE_GROUP = gql`mutation DeleteGroup($groupId: ID!) { deleteGroup(group
 const TRANSFER_OWNERSHIP = gql`mutation TransferGroupOwnership($groupId: ID!, $userId: ID!) { transferGroupOwnership(groupId: $groupId, userId: $userId) { id } }`;
 const GENERATE_INVITE = gql`mutation GenerateInviteLink($groupId: ID!, $ttl: Int!) { generateInviteLink(groupId: $groupId, ttl: $ttl) { url expiresAt } }`;
 const UPDATE_POLICY = gql`mutation UpdateMemberAddPolicy($groupId: ID!, $policy: MemberAddPolicy!) { updateMemberAddPolicy(groupId: $groupId, policy: $policy) { id memberAddPolicy } }`;
+const SUBMIT_WRAPPED_KEYS = gql`mutation SubmitWrappedKeys($groupId: ID!, $wrappedKeys: [WrappedKeyInput!]!) { submitRotatedGroupKeys(groupId: $groupId, wrappedKeys: $wrappedKeys) }`;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -118,7 +137,6 @@ export default function GroupChatPage() {
   const params = useParams();
   const groupId = params?.id as string;
 
-  const [token, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState('');
   const [ephemeral, setEphemeral] = useState(false);
@@ -128,32 +146,118 @@ export default function GroupChatPage() {
   const [addSuccess, setAddSuccess] = useState('');
   const [settingsTab, setSettingsTab] = useState<'members' | 'admin'>('members');
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState('');
   const [groupKey, setGroupKey] = useState<CryptoKey | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [submitKeys] = useMutation(SUBMIT_WRAPPED_KEYS);
+
   // Initialize group key
   useEffect(() => {
-    if (!groupId) return;
-    getOrCreateGroupKey(groupId).then(setGroupKey).catch(e => console.error('E2E Key Error', e));
-  }, [groupId]);
+    if (!groupId || !data?.group || !meData?.me) return;
 
-  useEffect(() => {
-    const t = localStorage.getItem('nexchat_token');
-    if (!t) { router.push('/login'); return; }
-    setToken(t);
-  }, [router]);
+    const initKey = async () => {
+      const group = data.group;
+      const me = meData.me;
+      const myMembership = group.members.find((m: any) => m.user.id === me.id);
+      const admin = group.members.find((m: any) => m.role === 'ADMIN');
 
-  const { data: meData } = useQuery<{ me: any }>(ME_QUERY, { skip: !token });
+      try {
+        let key = await getOrRequestGroupKey(
+          groupId, 
+          myMembership?.encryptedKey, 
+          admin?.user.publicKey
+        ).catch(() => null);
+
+        // If I am admin and no key exists ANYWHERE, generate it now (first open after create)
+        if (!key && myMembership?.role === 'ADMIN' && !myMembership?.encryptedKey) {
+          key = await generateAndStoreGroupKey(groupId);
+        }
+
+        if (!key) {
+          throw new Error('Your encryption key for this group has not been delivered yet. Wait or ask a group admin to open the app.');
+        }
+
+        setGroupKey(key);
+        setKeyError('');
+
+        // Distribute to pending members if I am Admin
+        if (myMembership?.role === 'ADMIN') {
+          const pending = group.members.filter((m: any) => !m.encryptedKey);
+          if (pending.length > 0 && me.publicKey) {
+            const { privateKey } = await getOrCreateKeyPair();
+            const wrappedKeys = await Promise.all(pending.map(async (m: any) => ({
+              memberId: m.user.id,
+              encryptedKey: await wrapGroupKeyForNewMember(key!, m.user.publicKey, privateKey)
+            })));
+            await submitKeys({ variables: { groupId, wrappedKeys } });
+          }
+        }
+      } catch (e: any) {
+        setKeyError(e.message);
+      }
+    };
+    initKey();
+  }, [groupId, data?.group, meData?.me, submitKeys]);
+
+  const { data: meData } = useQuery<{ me: any }>(ME_QUERY);
   const { data, loading, refetch } = useQuery<{ group: Group }>(GROUP_QUERY, {
     variables: { id: groupId },
-    skip: !token || !groupId,
+    skip: !groupId,
   });
 
-  const { data: msgData, refetch: refetchMessages } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
+  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
     variables: { groupId },
-    skip: !token || !groupId || !groupKey,
-    pollInterval: 3000,
+    skip: !groupId || !groupKey,
   });
+
+  const [gapWarning, setGapWarning] = useState(false);
+  const lastReceivedAt = useRef<number>(Date.now());
+  const client = useApolloClient();
+
+  useEffect(() => {
+    if (!subscribeToMore || !groupId) return;
+    const unsubscribe = subscribeToMore({
+      document: MESSAGE_RECEIVED_SUBSCRIPTION,
+      variables: { roomId: groupId },
+      updateQuery: (prev, { subscriptionData }) => {
+        if (!subscriptionData.data) return prev;
+        const newMsg = subscriptionData.data.messageReceived;
+        lastReceivedAt.current = Date.now();
+        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev;
+        return {
+          ...prev,
+          messages: {
+            ...prev.messages,
+            edges: [...(prev.messages?.edges || []), newMsg],
+          }
+        };
+      }
+    });
+    return () => unsubscribe();
+  }, [subscribeToMore, groupId]);
+
+  useEffect(() => {
+    const handleReconnect = async () => {
+      const gapMs = Date.now() - lastReceivedAt.current;
+      if (gapMs > 55000) {
+        setGapWarning(true);
+        return;
+      }
+      if (gapMs > 5000) { 
+         await client.query({
+          query: MISSED_EPHEMERAL_MESSAGES_QUERY,
+          variables: { groupId, since: lastReceivedAt.current },
+          fetchPolicy: 'network-only'
+        });
+        refetchMessages();
+      }
+      lastReceivedAt.current = Date.now();
+    };
+    
+    window.addEventListener('online', handleReconnect);
+    return () => window.removeEventListener('online', handleReconnect);
+  }, [groupId, client, refetchMessages]);
 
   // Decrypt incoming messages
   useEffect(() => {
@@ -331,6 +435,20 @@ export default function GroupChatPage() {
         </div>
 
         {/* Ephemeral Banner */}
+        {gapWarning && (
+          <div className="bg-yellow-50 border-b border-yellow-300 px-4 py-3 flex items-start gap-3">
+            <AlertCircle size={16} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm font-medium text-yellow-800">
+              ⚠️ You were offline for more than 60 seconds. Ephemeral messages sent during that time are not recoverable.
+            </p>
+          </div>
+        )}
+        {keyError && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-3 flex items-start gap-3">
+            <AlertCircle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm font-medium text-red-800">{keyError}</p>
+          </div>
+        )}
         {group.type === 'EPHEMERAL' && (
           <div className="bg-[#D0F5EE] border-b border-[#1ABC9C]/20 px-4 py-2 flex items-center gap-2">
             <AlertCircle size={14} className="text-[#0A7A65] flex-shrink-0" />
