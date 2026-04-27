@@ -86,6 +86,8 @@ model Room {
   messages Message[]
   files    File[]
 
+  fallbackAdminId String?  // userId of designated fallback admin — no key material here
+  keyShards       room_key_shards[]
   @@map("rooms")
 }
 
@@ -138,6 +140,19 @@ model File {
   @@map("files")
 }
 
+model room_key_shards {
+  id             String   @id @default(uuid())
+  roomId         String
+  userId         String
+  encryptedShard String   // room key wrapped with this member's public key — server cannot read this
+  createdAt      DateTime @default(now())
+
+  room    rooms @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user    users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])  // one shard per member per room — enforced at DB level
+}
+
 // ─── Groups ─────────────────────────────────────────────────
 
 model Group {
@@ -149,6 +164,7 @@ model Group {
   locked          Boolean         @default(false)
   memberAddPolicy MemberAddPolicy @default(ADMIN_ONLY)
   createdAt       DateTime        @default(now())
+  encryptionKey   String?         // Base64-encoded AES key
 
   creator  User          @relation("GroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   members  GroupMember[]

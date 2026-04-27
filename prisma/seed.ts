@@ -4,7 +4,10 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  // Use structured logging in production; avoid console.log
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('🌱 Seeding database...');
+  }
 
   const passwordHash = await bcrypt.hash('password123', 12);
 
@@ -41,7 +44,10 @@ async function main() {
     },
   });
 
-  console.log('✅ Seeded users:', { alice: alice.id, bob: bob.id, charlie: charlie.id });
+  // Avoid logging sensitive user data in production
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('✅ Seeded users:', { alice: alice.id, bob: bob.id, charlie: charlie.id });
+  }
 }
 
 main()

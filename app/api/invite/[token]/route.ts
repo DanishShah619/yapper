@@ -4,13 +4,14 @@ import prisma from '@/lib/prisma';
 import Redis from 'ioredis';
 import { cookies } from 'next/headers';
 import { validateCsrfToken } from '@/lib/csrf';
+import { withSecurityHeaders } from '@/lib/security-headers';
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
-export async function POST(
+export const POST = withSecurityHeaders(async (
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
-) {
+) => {
   try {
     if (!validateCsrfToken(request)) {
       return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
@@ -79,4 +80,4 @@ export async function POST(
     console.error('Invite Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-}
+});

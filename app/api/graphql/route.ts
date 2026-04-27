@@ -1,3 +1,4 @@
+import { withSecurityHeaders } from '@/lib/security-headers';
 import { ApolloServer } from '@apollo/server';
 import { startServerAndCreateNextHandler } from '@as-integrations/next';
 import { NextRequest } from 'next/server';
@@ -44,13 +45,15 @@ const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(ser
 });
 
 
-export async function GET(request: NextRequest) {
-  return handler(request);
-}
 
-export async function POST(request: NextRequest) {
+export const GET = withSecurityHeaders(async (request: NextRequest) => {
+  return handler(request);
+});
+
+
+export const POST = withSecurityHeaders(async (request: NextRequest) => {
   if (!validateCsrfToken(request)) {
     return Response.json({ error: 'Invalid CSRF token' }, { status: 403 });
   }
   return handler(request);
-}
+});

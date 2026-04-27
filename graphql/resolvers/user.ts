@@ -197,7 +197,9 @@ export const userResolvers = {
       context: GraphQLContext
     ) => {
       if (!context.userId) throw new Error('Not authenticated');
-      // TODO: V2 — Surface users with 2+ mutual connections
+      // TODO (V2): Implement mutual connection suggestion algorithm.
+      // Suggest users with 2+ mutual friends, excluding current friends and self.
+      // See PRD FR-4 for details.
       return [];
     },
 
@@ -207,7 +209,8 @@ export const userResolvers = {
       context: GraphQLContext
     ) => {
       if (!context.userId) throw new Error('Not authenticated');
-      // TODO: V2 — Reverse-chronological feed from connections
+      // TODO (V2): Implement reverse-chronological feed from connections' posts.
+      // See PRD FR-14 for details.
       return [];
     },
   },
@@ -221,11 +224,13 @@ export const userResolvers = {
       context: GraphQLContext
     ) => {
       if (!context.userId) throw new Error('Not authenticated');
-      if (!args.username || !args.username.trim()) throw new Error('Username is required');
+      // Input validation
+      const { validateInput, sendConnectionRequestSchema } = await import('@/lib/validation');
+      const validated = validateInput(sendConnectionRequestSchema, args);
 
       // PRD FR-3: username-only lookup (no email fallback)
       const targetUser = await prisma.user.findUnique({
-        where: { username: args.username.toLowerCase().trim() },
+        where: { username: validated.username.toLowerCase().trim() },
       });
       if (!targetUser) throw new Error('User not found');
       if (targetUser.id === context.userId) throw new Error('Cannot send a request to yourself');

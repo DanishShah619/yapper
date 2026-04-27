@@ -40,7 +40,8 @@ function KeyInitialiser() {
         // Non-fatal: key upload will be retried on next page load
       }
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The effect intentionally runs only once on mount; dependencies are static
+  }, []);
 
   return null;
 }

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { generateCsrfToken, setCsrfCookie } from '@/lib/csrf';
+import { withSecurityHeaders } from '@/lib/security-headers';
 
 // Execute GraphQL server-side
 async function executeGraphQL(query: string, variables: any) {
@@ -11,8 +12,11 @@ async function executeGraphQL(query: string, variables: any) {
   return res.json();
 }
 
-export async function POST(request: Request) {
-  const { email, username, password } = await request.json();
+export const POST = withSecurityHeaders(async (request: Request) => {
+  const body = await request.json();
+  // Input validation
+  const { validateInput, registerSchema } = await import('@/lib/validation');
+  const { email, username, password } = validateInput(registerSchema, body);
 
   const result = await executeGraphQL(`
     mutation Register($email: String!, $username: String!, $password: String!) {
@@ -38,6 +42,6 @@ export async function POST(request: Request) {
   });
 
   setCsrfCookie(csrfToken);
-
+});
   return Response.json({ success: true });
 }

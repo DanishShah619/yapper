@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { useMutation, useLazyQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 
@@ -84,19 +86,14 @@ export default function ChatPage({ roomId }: { roomId: string }) {
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSend} className="flex p-4 bg-white border-t">
-        <input
+        <Input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 border rounded p-2 mr-2"
+          className="flex-1 mr-2"
         />
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
-          Send
-        </button>
+        <Button type="submit">Send</Button>
       </form>
     </div>
   );

@@ -9,6 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL || "postgresql://nexchat:nexchat_dev@localhost:5432/nexchat?schema=public",
+   url: process.env.DATABASE_URL || "postgresql://nexchat:nexchat_dev@localhost:5432/nexchat",
   },
 });

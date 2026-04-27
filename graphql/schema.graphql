@@ -213,6 +213,7 @@ type Mutation {
 
   # V2 Stubs
   createPost(content: String!): Post!
+  rotateKey(groupId: ID!): Boolean
 }
 
 # ─── Subscriptions ───────────────────────────────────────────

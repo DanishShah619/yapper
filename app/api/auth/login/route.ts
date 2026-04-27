@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { generateCsrfToken, setCsrfCookie } from '@/lib/csrf';
+import { withSecurityHeaders } from '@/lib/security-headers';
 
 // Execute GraphQL server-side
 async function executeGraphQL(query: string, variables: any) {
@@ -11,7 +12,7 @@ async function executeGraphQL(query: string, variables: any) {
   return res.json();
 }
 
-export async function POST(request: Request) {
+export const POST = withSecurityHeaders(async (request: Request) => {
   const { email, password } = await request.json();
 
   const result = await executeGraphQL(`
@@ -38,6 +39,6 @@ export async function POST(request: Request) {
   });
 
   setCsrfCookie(csrfToken);
-
+});
   return Response.json({ success: true });
 }

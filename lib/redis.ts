@@ -21,7 +21,10 @@ function createRedisClient(): Redis {
   });
 
   client.on('connect', () => {
-    console.log('[Redis] Connected');
+    // Use structured logging in production; avoid console.log
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[Redis] Connected');
+    }
   });
 
   return client;
