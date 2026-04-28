@@ -30,7 +30,7 @@ export const POST = withSecurityHeaders(async (request: Request) => {
   const jwt = result.data.login.token;
   const csrfToken = generateCsrfToken();
 
-  cookies().set('nexchat_token', jwt, {
+  (await cookies()).set('nexchat_token', jwt, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
@@ -39,6 +39,7 @@ export const POST = withSecurityHeaders(async (request: Request) => {
   });
 
   setCsrfCookie(csrfToken);
+  return Response.json({ success: true })
 });
-  return Response.json({ success: true });
-}
+  
+

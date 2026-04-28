@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
  * Adds recommended HTTP security headers to all API responses.
  * Usage: wrap your route handler with this function.
  */
-export function withSecurityHeaders(handler: (req: NextRequest) => Promise<Response> | Response) {
-  return async (req: NextRequest) => {
-    const res = await handler(req);
+export function withSecurityHeaders(handler: (req: NextRequest, ...args: any[]) => Promise<Response> | Response) {
+  return async (req: NextRequest, ...args: any[]) => {
+    const res = await handler(req, ...args);
     // If the handler returns a NextResponse, set headers directly
     if (res instanceof NextResponse) {
       res.headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; object-src 'none';");

@@ -52,9 +52,11 @@ model User {
   createdVideoRooms VideoRoom[]
   posts            Post[]
   feedItems        FeedItem[]
+  roomKeyShards room_key_shards[]
 
   @@map("users")
 }
+
 
 model Friendship {
   id          String           @id @default(uuid())
@@ -140,17 +142,38 @@ model File {
   @@map("files")
 }
 
+// ─── Key Delivery Tracking ─────────────────────────────────────────────────
+
+enum KeyDeliveryStatus {
+  PENDING       // Shard uploaded, not yet fetched by member
+  DELIVERED     // Member fetched the shard from server
+  ACKNOWLEDGED  // Client confirmed receipt via Socket.IO
+  DECRYPTED     // Client confirmed successful decryption
+}
+
 model room_key_shards {
-  id             String   @id @default(uuid())
+  id             String            @id @default(uuid())
   roomId         String
   userId         String
-  encryptedShard String   // room key wrapped with this member's public key — server cannot read this
-  createdAt      DateTime @default(now())
+  encryptedShard String            // room key wrapped with member's public key — server cannot read this
 
-  room    rooms @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user    users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ── Delivery Tracking ──────────────────────────────────────────────────────
+  deliveryStatus  KeyDeliveryStatus @default(PENDING)
+  deliveredAt     DateTime?         // set when member fetches their shard
+  acknowledgedAt  DateTime?         // set when client emits shard:received
+  decryptedAt     DateTime?         // set when client emits shard:decrypted
+  retryCount      Int               @default(0)
+  lastRetryAt     DateTime?
+  // ───────────────────────────────────────────────────────────────────────────
 
-  @@unique([roomId, userId])  // one shard per member per room — enforced at DB level
+  createdAt      DateTime          @default(now())
+
+  room    Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([roomId, deliveryStatus])    // fast health queries per room
+  @@index([deliveryStatus, createdAt]) // fast stale shard detection across all rooms
 }
 
 // ─── Groups ─────────────────────────────────────────────────

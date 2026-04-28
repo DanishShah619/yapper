@@ -1,6 +1,12 @@
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 
-export function generateLiveKitToken(userId: string, roomId: string): string {
+export const roomService = new RoomServiceClient(
+  process.env.LIVEKIT_URL || "ws://localhost:7880",
+  process.env.LIVEKIT_API_KEY || "",
+  process.env.LIVEKIT_API_SECRET || ""
+);
+
+export async function generateLiveKitToken(userId: string, roomId: string): Promise<string> {
   const apiKey = process.env.LIVEKIT_API_KEY || "";
   const apiSecret = process.env.LIVEKIT_API_SECRET || "";
   const token = new AccessToken(apiKey, apiSecret, {
@@ -13,5 +19,5 @@ export function generateLiveKitToken(userId: string, roomId: string): string {
     canSubscribe: true,
     canPublishData: true,
   });
-  return token.toJwt();
+  return await token.toJwt();
 }

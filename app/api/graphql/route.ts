@@ -20,7 +20,7 @@ const server = new ApolloServer<GraphQLContext>({
 const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(server, {
   context: async (req: NextRequest): Promise<GraphQLContext> => {
     // Extract JWT from secure httpOnly cookie
-    const token = cookies().get('nexchat_token')?.value || extractToken(req.headers.get('authorization'));
+    const token = (await cookies()).get('nexchat_token')?.value || extractToken(req.headers.get('authorization'));
 
     // Validate token against Redis session cache
     let userId: string | null = null;

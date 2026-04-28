@@ -14,7 +14,7 @@ import { getOrRequestGroupKey, encryptMessage, decryptMessage, getOrCreateKeyPai
 
 // ─── GraphQL ────────────────────────────────────────────────────────────────
 
-const ME_QUERY = gql`query Me { me { id username avatarUrl } }`;
+const ME_QUERY = gql`query Me { me { id username avatarUrl publicKey } }`;
 
 const GROUP_QUERY = gql`
   query Group($id: ID!) {
@@ -99,7 +99,8 @@ interface GroupMember {
   role: 'ADMIN' | 'MEMBER';
   mutedAt?: string | null;
   joinedAt: string;
-  user: { id: string; username: string; avatarUrl?: string | null };
+  encryptedKey?: string | null;
+  user: { id: string; username: string; avatarUrl?: string | null; publicKey?: string | null };
 }
 
 interface Group {
@@ -152,6 +153,21 @@ export default function GroupChatPage() {
 
   const [submitKeys] = useMutation(SUBMIT_WRAPPED_KEYS);
 
+  const { data: meData } = useQuery<{ me: any }>(ME_QUERY);
+  const { data, loading, refetch } = useQuery<{ group: Group }>(GROUP_QUERY, {
+    variables: { id: groupId },
+    skip: !groupId,
+  });
+
+  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
+    variables: { groupId },
+    skip: !groupId || !groupKey,
+  });
+
+  const [gapWarning, setGapWarning] = useState(false);
+  const lastReceivedAt = useRef<number>(Date.now());
+  const client = useApolloClient();
+
   // Initialize group key
   useEffect(() => {
     if (!groupId || !data?.group || !meData?.me) return;
@@ -165,8 +181,8 @@ export default function GroupChatPage() {
       try {
         let key = await getOrRequestGroupKey(
           groupId, 
-          myMembership?.encryptedKey, 
-          admin?.user.publicKey
+          myMembership?.encryptedKey ?? undefined, 
+          admin?.user.publicKey ?? undefined
         ).catch(() => null);
 
         // If I am admin and no key exists ANYWHERE, generate it now (first open after create)
@@ -200,38 +216,23 @@ export default function GroupChatPage() {
     initKey();
   }, [groupId, data?.group, meData?.me, submitKeys]);
 
-  const { data: meData } = useQuery<{ me: any }>(ME_QUERY);
-  const { data, loading, refetch } = useQuery<{ group: Group }>(GROUP_QUERY, {
-    variables: { id: groupId },
-    skip: !groupId,
-  });
-
-  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
-    variables: { groupId },
-    skip: !groupId || !groupKey,
-  });
-
-  const [gapWarning, setGapWarning] = useState(false);
-  const lastReceivedAt = useRef<number>(Date.now());
-  const client = useApolloClient();
-
   useEffect(() => {
     if (!subscribeToMore || !groupId) return;
     const unsubscribe = subscribeToMore({
       document: MESSAGE_RECEIVED_SUBSCRIPTION,
       variables: { roomId: groupId },
       updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev;
-        const newMsg = subscriptionData.data.messageReceived;
+        if (!subscriptionData.data) return prev as { messages: { edges: any[] } };
+        const newMsg = (subscriptionData.data as unknown as { messageReceived: any }).messageReceived;
         lastReceivedAt.current = Date.now();
-        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev;
+        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev as { messages: { edges: any[] } };
         return {
           ...prev,
           messages: {
             ...prev.messages,
             edges: [...(prev.messages?.edges || []), newMsg],
           }
-        };
+        } as { messages: { edges: any[] } };
       }
     });
     return () => unsubscribe();
@@ -370,7 +371,7 @@ export default function GroupChatPage() {
     addMember({ variables: { groupId, username: addUsername.trim() } });
   };
 
-  if (!token || loading) {
+  if (!groupId || loading) {
     return (
       <div className="min-h-screen bg-[#F0F8FF] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#BAD9F5] border-t-[#1ABC9C] rounded-full animate-spin" />

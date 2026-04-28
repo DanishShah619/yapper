@@ -181,17 +181,17 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
       document: MESSAGE_RECEIVED_SUBSCRIPTION,
       variables: { roomId },
       updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev;
-        const newMsg = subscriptionData.data.messageReceived;
+        if (!subscriptionData.data) return prev as { messages: { edges: any[] } };
+        const newMsg = (subscriptionData.data as unknown as { messageReceived: any }).messageReceived;
         lastReceivedAt.current = Date.now();
-        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev;
+        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev as { messages: { edges: any[] } };
         return {
           ...prev,
           messages: {
             ...prev.messages,
             edges: [...(prev.messages?.edges || []), newMsg],
           }
-        };
+        } as { messages: { edges: any[] } };
       }
     });
     return () => unsubscribe();

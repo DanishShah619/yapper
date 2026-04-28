@@ -33,6 +33,43 @@ export const typeDefs = `#graphql
     OPEN
   }
 
+  enum KeyDeliveryStatus {
+    PENDING
+    DELIVERED
+    ACKNOWLEDGED
+    DECRYPTED
+  }
+
+  type MemberDeliveryDetail {
+    userId: ID!
+    username: String!
+    status: KeyDeliveryStatus!
+    createdAt: String!
+    deliveredAt: String
+    acknowledgedAt: String
+    decryptedAt: String
+    retryCount: Int!
+    isStale: Boolean!
+    minutesSinceCreation: Int!
+  }
+
+  type KeyHealthReport {
+    roomId: ID!
+    totalMembers: Int!
+    pending: Int!
+    delivered: Int!
+    acknowledged: Int!
+    decrypted: Int!
+    healthScore: Int!
+    staleMembers: [String!]!
+    isHealthy: Boolean!
+  }
+
+  type RedeliveryResult {
+    success: Boolean!
+    reason: String
+  }
+
   type User {
     id: ID!
     email: String!
@@ -175,6 +212,10 @@ export const typeDefs = `#graphql
     peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
     feed(cursor: String, limit: Int): [FeedItem!]!
     missedEphemeralMessages(roomId: ID, groupId: ID, since: Float!): [Message!]!
+    myKeyShard(roomId: ID!): KeyShard
+    userPublicKeys(userIds: [ID!]!): [User!]!
+    roomKeyHealth(roomId: ID!): KeyHealthReport!
+    memberKeyDeliveryDetails(roomId: ID!): [MemberDeliveryDetail!]!
   }
 
   type Mutation {
@@ -207,6 +248,24 @@ export const typeDefs = `#graphql
     rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
     lockVideoRoom(roomId: ID!): VideoRoom!
     createPost(content: String!): Post!
+    uploadKeyShards(roomId: ID!, shards: [KeyShardInput!]!): Boolean!
+    rotateKey(roomId: ID!, newShards: [KeyShardInput!]!, removedMemberId: ID): Boolean!
+    setFallbackAdmin(roomId: ID!, userId: ID!): Boolean!
+    promoteFallbackAdmin(roomId: ID!): Boolean!
+    redeliverKey(roomId: ID!, userId: ID!): RedeliveryResult!
+  }
+
+  type KeyShard {
+    id: ID!
+    roomId: ID!
+    userId: ID!
+    encryptedShard: String!
+    createdAt: String!
+  }
+
+  input KeyShardInput {
+    userId: ID!
+    encryptedShard: String!
   }
 
   type Subscription {
@@ -218,5 +277,6 @@ export const typeDefs = `#graphql
     roomLocked(videoRoomId: ID!): Boolean!
     groupMemberUpdated(groupId: ID!): GroupMember!
     groupKeyRotationRequired(groupId: ID!): KeyRotationSignal!
+    keyHealthUpdated(roomId: ID!): KeyHealthReport!
   }
 `;

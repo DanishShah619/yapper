@@ -10,6 +10,9 @@ import { createClient } from 'redis';
 import next from 'next';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { setIO } from './lib/socketIO';
+import { markShardAcknowledged, markShardDecrypted } from './lib/keyDelivery';
+import { prisma } from './lib/prisma';
 
 dotenv.config();
 
@@ -37,6 +40,8 @@ async function main() {
     path: '/socket.io',
   });
   io.adapter(createAdapter(pubClient, subClient));
+  // Register io singleton so lib/keyDelivery.ts can access it
+  setIO(io);
 
   // JWT auth middleware
   io.use((socket, next) => {
@@ -53,9 +58,16 @@ async function main() {
 
   // Event namespaces
   io.on('connection', (socket) => {
+    const userId = (socket as any).user?.userId as string | undefined;
+
+    // Subscribe to personal channels for targeted events
+    if (userId) {
+      socket.join(`admin:${userId}`);
+      socket.join(`user:${userId}`);
+    }
+
     // Messaging events
     socket.on('message:new', (data) => {
-      // Broadcast to room
       io.to(data.roomId).emit('message:new', data);
     });
     socket.on('joinRoom', (roomId) => {
@@ -72,10 +84,79 @@ async function main() {
       // Handle disconnect, update presence
     });
     // Video/waiting room events
-    socket.on('waiting:joined', (data) => {
-      // Handle waiting room join
+    socket.on('waiting:joined', async (data) => {
+      const { roomId, user } = data;
+      if (!roomId || !userId) return;
+      
+      try {
+        // Add to Redis waiting room set
+        await pubClient.sAdd(`waitingroom:${roomId}`, userId);
+        
+        // Let the host/admin know the waiting room was updated
+        io.to(`videoadmin:${roomId}`).emit('waiting:joined', { roomId, user });
+      } catch (err) {
+        console.error('[Video] waiting:joined handler error:', err);
+      }
     });
-    // Add more event handlers as needed
+
+    socket.on('videoadmin:join', async ({ roomId }) => {
+      if (!userId || !roomId) return;
+      try {
+        const room = await prisma.videoRoom.findUnique({ where: { id: roomId } });
+        if (room?.createdBy === userId) {
+          socket.join(`videoadmin:${roomId}`);
+        }
+      } catch (err) {
+        console.error('[Video] videoadmin:join handler error:', err);
+      }
+    });
+
+    /**
+     * Client emits after successfully receiving the shard blob from the server.
+     * Advances status: DELIVERED → ACKNOWLEDGED.
+     */
+    socket.on('shard:received', async ({ roomId }: { roomId: string }) => {
+      if (!userId || !roomId) return;
+      try {
+        await markShardAcknowledged(roomId, userId);
+      } catch (err) {
+        console.error('[KeyDelivery] shard:received handler error:', err);
+      }
+    });
+
+    /**
+     * Client emits ONLY after successfully calling unwrapRoomKey().
+     * Advances status: ACKNOWLEDGED → DECRYPTED.
+     * This is the terminal success event.
+     */
+    socket.on('shard:decrypted', async ({ roomId }: { roomId: string }) => {
+      if (!userId || !roomId) return;
+      try {
+        await markShardDecrypted(roomId, userId);
+      } catch (err) {
+        console.error('[KeyDelivery] shard:decrypted handler error:', err);
+      }
+    });
+
+    /**
+     * Admin client requests to join the room admin channel for live health updates.
+     * Verified against DB before joining — prevents non-admins spoofing the channel.
+     */
+    socket.on('admin:join', async ({ roomId }: { roomId: string }) => {
+      if (!userId || !roomId) return;
+      try {
+        const membership = await prisma.roomMember.findUnique({
+          where: { roomId_userId: { roomId, userId } },
+        });
+        if (membership?.role === 'ADMIN') {
+          socket.join(`adminroom:${roomId}`);
+        }
+      } catch (err) {
+        console.error('[KeyDelivery] admin:join handler error:', err);
+      }
+    });
+
+    // ────────────────────────────────────────────────────────────────────────
   });
 
   // Next.js request handler

@@ -48,6 +48,20 @@ services:
       timeout: 5s
       retries: 5
 
+  coturn:
+    image: coturn/coturn:latest
+    container_name: nexchat-coturn
+    restart: unless-stopped
+    ports:
+      - '3478:3478'
+      - '3478:3478/udp'
+    command: >
+      -n --log-file=stdout
+      --min-port=49152 --max-port=65535
+      --realm=localhost
+      --user=user:password
+      --lt-cred-mech
+
 volumes:
   nexchat_pgdata:
   nexchat_redis:

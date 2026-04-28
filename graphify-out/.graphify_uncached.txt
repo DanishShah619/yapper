@@ -1,0 +1,10 @@
+D:\yapper\yapper\NexChat_Frontend_SKILL.md
+D:\yapper\yapper\NexChat_PRD.md
+D:\yapper\yapper\NexChat_TaskBreakdown.md
+D:\yapper\yapper\phase3_review.md
+D:\yapper\yapper\README.md
+D:\yapper\yapper\public\file.svg
+D:\yapper\yapper\public\globe.svg
+D:\yapper\yapper\public\next.svg
+D:\yapper\yapper\public\vercel.svg
+D:\yapper\yapper\public\window.svg

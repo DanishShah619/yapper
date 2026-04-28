@@ -18,7 +18,7 @@ export const POST = withSecurityHeaders(async (
     }
 
     const { token } = await params;
-    const jwtToken = cookies().get('nexchat_token')?.value;
+    const jwtToken = (await cookies()).get('nexchat_token')?.value;
 
     if (!jwtToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

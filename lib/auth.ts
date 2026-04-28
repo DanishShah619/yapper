@@ -1,8 +1,9 @@
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { getSession } from './session';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nexchat-dev-secret-change-in-production-2025';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] =
+  (process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn']) ?? '7d';
 
 export interface JwtPayload {
   userId: string;

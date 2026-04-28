@@ -91,7 +91,7 @@ function CreateGroupModal({ onClose, onCreated }: CreateGroupModalProps) {
   const [avatar, setAvatar] = useState('');
   const [error, setError] = useState('');
 
-  const [createGroup, { loading }] = useMutation(CREATE_GROUP_MUTATION, {
+  const [createGroup, { loading }] = useMutation<{ createGroup: Group }>(CREATE_GROUP_MUTATION, {
     onCompleted: (data) => {
       onCreated(data.createGroup);
       onClose();
@@ -219,7 +219,7 @@ export default function GroupsPage() {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
 
-  const { data: meData } = useQuery(ME_QUERY);
+  const { data: meData } = useQuery<{ me: { id: string; username: string; avatarUrl?: string | null } }>(ME_QUERY);
   const { data, loading, refetch, error } = useQuery<{ groups: Group[] }>(GROUPS_QUERY);
 
   useEffect(() => {

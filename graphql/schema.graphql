@@ -28,6 +28,7 @@ type User {
   id: ID!
   email: String!
   username: String!
+  publicKey: String!
   avatarUrl: String
   createdAt: DateTime!
 }
@@ -168,6 +169,12 @@ type Query {
   # V2 Stubs
   peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
   feed(cursor: String, limit: Int): [FeedItem!]!
+
+   # Fetch our own shard for a room (to decrypt the room key)
+  myKeyShard(roomId: ID!): KeyShard
+
+  # Fetch public keys of multiple users (needed before wrapping shards)
+  userPublicKeys(userIds: [ID!]!): [User!]!
 }
 
 # ─── Mutations ───────────────────────────────────────────────
@@ -214,6 +221,21 @@ type Mutation {
   # V2 Stubs
   createPost(content: String!): Post!
   rotateKey(groupId: ID!): Boolean
+
+   uploadKeyShards(roomId: ID!, shards: [KeyShardInput!]!): Boolean!
+
+  # Called when a member is removed — admin provides fresh shards for all remaining members
+  # oldMemberId = the removed member, so server can verify they have no shard
+  rotateKey(roomId: ID!, newShards: [KeyShardInput!]!, removedMemberId: ID): Boolean!
+
+  # Designate a fallback admin for a room (admin only)
+  setFallbackAdmin(roomId: ID!, userId: ID!): Boolean!
+
+  # The fallback admin calls this to take over when primary admin is offline
+  promoteFallbackAdmin(roomId: ID!): Boolean!
+
+  # Upload our own public key after generating it client-side
+  updatePublicKey(publicKeyJwk: String!): Boolean!
 }
 
 # ─── Subscriptions ───────────────────────────────────────────
@@ -225,4 +247,19 @@ type Subscription {
   participantRejected(videoRoomId: ID!): Boolean!
   roomLocked(videoRoomId: ID!): Boolean!
   groupMemberUpdated(groupId: ID!): GroupMember!
+}
+type KeyShard{
+id: ID!
+roomId: ID!
+userId: ID!
+encryptedShard: String!
+createdAt: DateTime!
+
+}
+input KeyShardInput{
+userId: ID!
+encryptedShard: String!
+
+ # Fires when the room key has been rotated — tells all members to fetch new shard
+  keyRotated(roomId: ID!): String!   # returns the roomId
 }

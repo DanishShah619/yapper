@@ -4,27 +4,26 @@ import { GraphQLContext } from '@/graphql/context';
 // Group mutations and subscription live in groups.ts.
 // Auth mutations live in auth.ts. User queries live in user.ts.
 export const stubResolvers = {
-    // ─── V2 Stubs ─────────────────────────────────────────────
-    Query: {
-      // peopleYouMayKnow: Returns empty array, see userResolvers for implementation plan.
-      peopleYouMayKnow: async () => [],
-      // feed: Returns empty array, see userResolvers for implementation plan.
-      feed: async () => [],
-    },
-    Mutation: {
-      // createPost: Returns a stub Post object. See PRD FR-14 for V2 implementation plan.
-      createPost: async (_parent: unknown, args: { content: string }, context: GraphQLContext) => {
-        if (!context.userId) throw new Error('Not authenticated');
-        // TODO (V2): Implement post creation and feed delivery.
-        return {
-          id: 'stub',
-          userId: context.userId,
-          content: args.content,
-          createdAt: new Date().toISOString(),
-        };
-      },
-    },
+  // ─── V2 Stubs ─────────────────────────────────────────────
+  Query: {
+    // peopleYouMayKnow: Returns empty array, see userResolvers for implementation plan.
+    peopleYouMayKnow: async () => [],
+    // feed: Returns empty array, see userResolvers for implementation plan.
+    feed: async () => [],
+  },
   Mutation: {
+    // createPost: Returns a stub Post object. See PRD FR-14 for V2 implementation plan.
+    createPost: async (_parent: unknown, args: { content: string }, context: GraphQLContext) => {
+      if (!context.userId) throw new Error('Not authenticated');
+      // TODO (V2): Implement post creation and feed delivery.
+      return {
+        id: 'stub',
+        userId: context.userId,
+        content: args.content,
+        createdAt: new Date().toISOString(),
+      };
+    },
+
     // ─── Phase 3: Files ───────────────────────────────────────────────
     uploadFile: async (
       _parent: unknown,
@@ -77,14 +76,5 @@ export const stubResolvers = {
       if (!ctx.userId) throw new Error('Not authenticated');
       throw new Error('Not yet implemented — Phase 4');
     },
-
-    // ─── V2 Stubs ─────────────────────────────────────────────────────
-    createPost: async (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
-      if (!ctx.userId) throw new Error('Not authenticated');
-      throw new Error('Not yet implemented — V2');
-    },
   },
-
-
-  
 };

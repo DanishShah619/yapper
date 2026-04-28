@@ -162,7 +162,7 @@ export const messagingResolvers = {
 
       // Fetch newest-first, then reverse to chronological ascending for display
       const rows = await ctx.prisma.message.findMany({
-        where: where as Parameters<typeof ctx.prisma.message.findMany>[0]['where'],
+        where: where as import('@prisma/client').Prisma.MessageWhereInput,
         include: { sender: true },
         orderBy: { createdAt: 'desc' },
         take: limit + 1, // +1 to detect hasNextPage

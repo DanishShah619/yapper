@@ -1,6 +1,7 @@
 'use client';
 
-import { ApolloProvider, useMutation, gql } from '@apollo/client/react';
+import { ApolloProvider, useMutation } from '@apollo/client/react';
+import { gql } from '@apollo/client';
 import client from '@/lib/apollo-client';
 import { useEffect } from 'react';
 import { getOrCreateKeyPair } from '@/lib/e2ee';

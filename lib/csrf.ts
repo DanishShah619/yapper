@@ -5,9 +5,10 @@ export function generateCsrfToken(): string {
   return randomBytes(32).toString('hex');
 }
 
-export function setCsrfCookie(token: string) {
+export async function setCsrfCookie(token: string) {
   // This cookie is readable by JS (no httpOnly) — intentionally, so the client can send it as a header
-  cookies().set('csrf_token', token, {
+  const cookieStore = await cookies();
+  cookieStore.set('csrf_token', token, {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
@@ -15,8 +16,9 @@ export function setCsrfCookie(token: string) {
   });
 }
 
-export function validateCsrfToken(request: Request): boolean {
-  const cookieToken = cookies().get('csrf_token')?.value;
+export async function validateCsrfToken(request: Request): Promise<boolean> {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get('csrf_token')?.value;
   const headerToken = request.headers.get('x-csrf-token');
 
   if (!cookieToken || !headerToken) return false;

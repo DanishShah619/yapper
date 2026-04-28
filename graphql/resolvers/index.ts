@@ -3,6 +3,9 @@ import { userResolvers } from './user';
 import { stubResolvers } from './stubs';
 import { groupResolvers } from './groups';
 import { messagingResolvers } from './messaging';
+import { keyEscrowResolvers } from './keyEscrow';
+import { keyDeliveryTrackingResolvers } from './keyDeliveryTracking';
+import { videoResolvers } from './video';
 import { GraphQLScalarType, Kind } from 'graphql';
 
 // Custom DateTime scalar
@@ -42,6 +45,10 @@ export const resolvers = {
     ...userResolvers.Query,
     // Phase 3: Messaging queries (conversations, conversation, messages) — override user stubs
     ...messagingResolvers.Query,
+    // Key Escrow queries (myKeyShard, userPublicKeys)
+    ...keyEscrowResolvers.Query,
+    // Key Delivery Tracking queries (roomKeyHealth, memberKeyDeliveryDetails)
+    ...keyDeliveryTrackingResolvers.Query,
   },
 
   Mutation: {
@@ -55,6 +62,12 @@ export const resolvers = {
     ...userResolvers.Mutation,
     // Phase 5: Group mutations — highest precedence, always wins
     ...groupResolvers.Mutation,
+    // Key Escrow mutations (uploadKeyShards, rotateKey, setFallbackAdmin, promoteFallbackAdmin)
+    ...keyEscrowResolvers.Mutation,
+    // Key Delivery Tracking mutations (redeliverKey)
+    ...keyDeliveryTrackingResolvers.Mutation,
+    // Phase 4: Video
+    ...videoResolvers.Mutation,
   },
 
   Subscription: {
@@ -62,5 +75,9 @@ export const resolvers = {
     ...messagingResolvers.Subscription,
     // Phase 5: groupMemberUpdated
     ...groupResolvers.Subscription,
+    // Key Delivery Tracking subscription (keyHealthUpdated)
+    ...keyDeliveryTrackingResolvers.Subscription,
+    // Phase 4: Video subscriptions
+    ...videoResolvers.Subscription,
   },
 };
