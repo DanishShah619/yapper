@@ -1,18 +1,18 @@
 // graphql/resolvers/keyEscrow.ts
-import { prisma } from "@/lib/prisma";
-import { markShardDelivered } from "@/lib/keyDelivery";
-import { KeyDeliveryStatus } from "@prisma/client";
-
-import { GraphQLError } from "graphql";
+import { GraphQLContext } from '@/graphql/context';
+import { prisma } from '@/lib/prisma';
+import { markShardDelivered } from '@/lib/keyDelivery';
+import { KeyDeliveryStatus } from '@prisma/client';
+import { GraphQLError } from 'graphql';
 
 // ── Helper: verify the caller is a room admin ─────────────────────────────────
 async function assertRoomAdmin(roomId: string, userId: string) {
   const membership = await prisma.roomMember.findUnique({
-    where: { roomId_userId: { roomId, userId } }
+    where: { roomId_userId: { roomId, userId } },
   });
-  if (!membership || membership.role !== "ADMIN") {
-    throw new GraphQLError("Only room admins can perform this action", {
-      extensions: { code: "FORBIDDEN" }
+  if (!membership || membership.role !== 'ADMIN') {
+    throw new GraphQLError('Only room admins can perform this action', {
+      extensions: { code: 'FORBIDDEN' },
     });
   }
 }
@@ -20,11 +20,11 @@ async function assertRoomAdmin(roomId: string, userId: string) {
 // ── Helper: verify the caller is a room member ────────────────────────────────
 async function assertRoomMember(roomId: string, userId: string) {
   const membership = await prisma.roomMember.findUnique({
-    where: { roomId_userId: { roomId, userId } }
+    where: { roomId_userId: { roomId, userId } },
   });
   if (!membership) {
-    throw new GraphQLError("You are not a member of this room", {
-      extensions: { code: "FORBIDDEN" }
+    throw new GraphQLError('You are not a member of this room', {
+      extensions: { code: 'FORBIDDEN' },
     });
   }
 }
@@ -37,23 +37,29 @@ export const keyEscrowResolvers = {
      * The server returns only the encrypted blob — it cannot read it.
      * Side-effect: advances delivery status PENDING → DELIVERED (fire-and-forget).
      */
-    myKeyShard: async (_: unknown, { roomId }: { roomId: string }, context: any) => {
-      const userId = context.user.id;  // from your auth middleware
+    myKeyShard: async (
+      _: unknown,
+      { roomId }: { roomId: string },
+      context: GraphQLContext,
+    ) => {
+      // BUG-1 FIX: was context.user.id — context shape uses context.userId
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      const userId = context.userId;
       await assertRoomMember(roomId, userId);
 
       const shard = await prisma.room_key_shards.findUnique({
-        where: { roomId_userId: { roomId, userId } }
+        where: { roomId_userId: { roomId, userId } },
       });
 
       if (shard && shard.deliveryStatus === KeyDeliveryStatus.PENDING) {
         // Fire-and-forget: do NOT await. Member gets their shard instantly;
         // tracking update happens asynchronously.
         markShardDelivered(roomId, userId).catch((err) =>
-          console.error('[KeyDelivery] Failed to mark shard delivered:', err)
+          console.error('[KeyDelivery] Failed to mark shard delivered:', err),
         );
       }
 
-      return shard;  // null if not found — client should handle this
+      return shard; // null if not found — client should handle this
     },
 
     /**
@@ -63,45 +69,23 @@ export const keyEscrowResolvers = {
     userPublicKeys: async (
       _: unknown,
       { userIds }: { userIds: string[] },
-      context: any
+      context: GraphQLContext,
     ) => {
-      // Caller must be authenticated
-      if (!context.user) throw new GraphQLError("Not authenticated");
+      // BUG-1 FIX: was context.user check — use context.userId
+      if (!context.userId) throw new GraphQLError('Not authenticated');
 
       return prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, username: true, publicKey: true, avatarUrl: true }
+        select: { id: true, username: true, publicKey: true, avatarUrl: true },
       });
     },
   },
 
   Mutation: {
-    /**
-     * Upload the caller's ECDH public key.
-     * Called once after generating the key pair on first login.
-     * The private key is NEVER sent here — only the public key.
-     */
-    updatePublicKey: async (
-      _: unknown,
-      { publicKeyJwk }: { publicKeyJwk: string },
-      context: any
-    ) => {
-      const userId = context.user.id;
-
-      // Basic validation — ensure it's valid JSON
-      try {
-        JSON.parse(publicKeyJwk);
-      } catch {
-        throw new GraphQLError("Invalid public key format");
-      }
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: { publicKey: publicKeyJwk }
-      });
-
-      return true;
-    },
+    // NOTE: updatePublicKey is intentionally handled by messaging.ts resolver.
+    // It uses the correct arg name `publicKey` and returns User! as per schema.
+    // keyEscrow previously had a duplicate with wrong arg name `publicKeyJwk`
+    // and wrong return type (Boolean instead of User!) — removed (BUG-5 FIX).
 
     /**
      * Upload encrypted shards for multiple members.
@@ -109,15 +93,20 @@ export const keyEscrowResolvers = {
      * The server receives only encrypted blobs — it cannot derive the room key.
      *
      * Security: caller must be a room admin to upload shards for others.
-     * Exception: a member can upload their OWN shard (for the creator on room creation).
      */
     uploadKeyShards: async (
       _: unknown,
       { roomId, shards }: { roomId: string; shards: Array<{ userId: string; encryptedShard: string }> },
-      context: any
+      context: GraphQLContext,
     ) => {
-      const callerId = context.user.id;
-      await assertRoomAdmin(roomId, callerId);
+      // BUG-1 FIX: was context.user.id
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      const callerId = context.userId;
+      // Allow non-admins to upload their own shard (e.g., when joining)
+      const isOwnShard = shards.length === 1 && shards[0].userId === callerId;
+      if (!isOwnShard) {
+        await assertRoomAdmin(roomId, callerId);
+      }
 
       // Upsert each shard — if one already exists for this user+room, replace it
       await Promise.all(
@@ -125,9 +114,9 @@ export const keyEscrowResolvers = {
           prisma.room_key_shards.upsert({
             where: { roomId_userId: { roomId, userId } },
             create: { roomId, userId, encryptedShard },
-            update: { encryptedShard }
-          })
-        )
+            update: { encryptedShard },
+          }),
+        ),
       );
 
       return true;
@@ -151,31 +140,31 @@ export const keyEscrowResolvers = {
       {
         roomId,
         newShards,
-        removedMemberId
+        removedMemberId,
       }: {
         roomId: string;
         newShards: Array<{ userId: string; encryptedShard: string }>;
         removedMemberId?: string;
       },
-      context: any
+      context: GraphQLContext,
     ) => {
-      const callerId = context.user.id;
+      // BUG-1 FIX: was context.user.id
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      const callerId = context.userId;
       await assertRoomAdmin(roomId, callerId);
 
       // Verify the removed member is NOT in the new shards list
-      // If they are, reject — they should not receive the new key
       if (removedMemberId) {
-        const shardForRemoved = newShards.find(s => s.userId === removedMemberId);
+        const shardForRemoved = newShards.find((s) => s.userId === removedMemberId);
         if (shardForRemoved) {
           throw new GraphQLError(
-            "Cannot include removed member in key rotation shards",
-            { extensions: { code: "BAD_USER_INPUT" } }
+            'Cannot include removed member in key rotation shards',
+            { extensions: { code: 'BAD_USER_INPUT' } },
           );
         }
       }
 
       // Use a transaction — all or nothing
-      // Either all shards are replaced or none are
       await prisma.$transaction(async (tx) => {
         // Delete ALL existing shards for this room
         await tx.room_key_shards.deleteMany({ where: { roomId } });
@@ -185,14 +174,13 @@ export const keyEscrowResolvers = {
           data: newShards.map(({ userId, encryptedShard }) => ({
             roomId,
             userId,
-            encryptedShard
-          }))
+            encryptedShard,
+          })),
         });
       });
 
-      // Notify all connected members that the key has changed
-      // Each member will fetch their new shard and decrypt it
-
+      // Emit event so clients fetch new shards
+      context.pubsub.publish(`keyRotated:${roomId}`, true);
 
       return true;
     },
@@ -205,9 +193,11 @@ export const keyEscrowResolvers = {
     setFallbackAdmin: async (
       _: unknown,
       { roomId, userId }: { roomId: string; userId: string },
-      context: any
+      context: GraphQLContext,
     ) => {
-      const callerId = context.user.id;
+      // BUG-1 FIX: was context.user.id
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      const callerId = context.userId;
       await assertRoomAdmin(roomId, callerId);
 
       // Verify the designated user is actually a member of the room
@@ -215,7 +205,7 @@ export const keyEscrowResolvers = {
 
       await prisma.room.update({
         where: { id: roomId },
-        data: { fallbackAdminId: userId }
+        data: { fallbackAdminId: userId },
       });
 
       return true;
@@ -229,39 +219,41 @@ export const keyEscrowResolvers = {
     promoteFallbackAdmin: async (
       _: unknown,
       { roomId }: { roomId: string },
-      context: any
+      context: GraphQLContext,
     ) => {
-      const callerId = context.user.id;
+      // BUG-1 FIX: was context.user.id
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      const callerId = context.userId;
 
-      const room = await prisma.room.findUnique({ where: { id: roomId }, select: { fallbackAdminId: true } });
+      const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        select: { fallbackAdminId: true },
+      });
 
       if (!room) {
-        throw new GraphQLError("Room not found");
+        throw new GraphQLError('Room not found');
       }
 
-      // Only the designated fallback admin can call this
-      if (room && room.fallbackAdminId !== callerId) {
+      if (room.fallbackAdminId !== callerId) {
         throw new GraphQLError(
-          "You are not the designated fallback admin for this room",
-          { extensions: { code: "FORBIDDEN" } }
+          'You are not the designated fallback admin for this room',
+          { extensions: { code: 'FORBIDDEN' } },
         );
       }
 
       // Promote them to admin in room_members
       await prisma.roomMember.update({
         where: { roomId_userId: { roomId, userId: callerId } },
-        data: { role: "ADMIN" }
+        data: { role: 'ADMIN' },
       });
 
       // Clear the fallbackAdminId — they are now a full admin
       await prisma.room.update({
         where: { id: roomId },
-        data: { fallbackAdminId: null }
+        data: { fallbackAdminId: null },
       });
 
       return true;
     },
   },
-
-  // Subscription removed. No pubsub.
 };

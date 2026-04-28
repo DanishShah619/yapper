@@ -199,7 +199,8 @@ export const messagingResolvers = {
         .filter((msg) => {
           const sentAt = new Date(msg.createdAt).getTime();
           const expires = new Date(msg.expiresAt).getTime();
-          return sentAt > args.since && expires > Date.now();
+          const sinceMs = args.since < 1e12 ? args.since * 1000 : args.since;
+          return sentAt > sinceMs && expires > Date.now();
         })
         .reverse(); // LPUSH prepends, so reversing gives chronological order
     },

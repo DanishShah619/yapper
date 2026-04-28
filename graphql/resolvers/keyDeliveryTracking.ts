@@ -1,4 +1,5 @@
 // graphql/resolvers/keyDeliveryTracking.ts
+import { GraphQLContext } from '@/graphql/context';
 import { prisma } from '@/lib/prisma';
 import { GraphQLError } from 'graphql';
 import { getRoomKeyHealth, redeliverShard } from '@/lib/keyDelivery';
@@ -29,9 +30,11 @@ export const keyDeliveryTrackingResolvers = {
     roomKeyHealth: async (
       _: unknown,
       { roomId }: { roomId: string },
-      context: any,
+      context: GraphQLContext,
     ) => {
-      await assertRoomAdmin(roomId, context.user.id);
+      // BUG-2 FIX: was context.user.id — context shape uses context.userId
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      await assertRoomAdmin(roomId, context.userId);
       return getRoomKeyHealth(roomId);
     },
 
@@ -42,9 +45,11 @@ export const keyDeliveryTrackingResolvers = {
     memberKeyDeliveryDetails: async (
       _: unknown,
       { roomId }: { roomId: string },
-      context: any,
+      context: GraphQLContext,
     ) => {
-      await assertRoomAdmin(roomId, context.user.id);
+      // BUG-2 FIX: was context.user.id
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      await assertRoomAdmin(roomId, context.userId);
 
       const shards = await prisma.room_key_shards.findMany({
         where: { roomId },
@@ -83,10 +88,12 @@ export const keyDeliveryTrackingResolvers = {
     redeliverKey: async (
       _: unknown,
       { roomId, userId }: { roomId: string; userId: string },
-      context: any,
+      context: GraphQLContext,
     ) => {
-      await assertRoomAdmin(roomId, context.user.id);
-      return redeliverShard(roomId, userId, context.user.id);
+      // BUG-2 FIX: was context.user.id in both assertRoomAdmin and redeliverShard
+      if (!context.userId) throw new GraphQLError('Not authenticated');
+      await assertRoomAdmin(roomId, context.userId);
+      return redeliverShard(roomId, userId, context.userId);
     },
   },
 

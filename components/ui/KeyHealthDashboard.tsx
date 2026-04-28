@@ -30,6 +30,9 @@ const REDELIVER_KEY = gql`
   }
 `;
 
+interface RedeliverKeyData { redeliverKey: { success: boolean; reason: string | null } }
+interface GetKeyHealthData { roomKeyHealth: HealthSummary; memberKeyDeliveryDetails: MemberDetail[] }
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
@@ -146,7 +149,7 @@ export function KeyHealthDashboard({ roomId }: KeyHealthDashboardProps) {
   const [redelivering, setRedelivering] = useState<string | null>(null);
   const [redeliveryMessage, setRedeliveryMessage] = useState<{ userId: string; text: string; ok: boolean } | null>(null);
 
-  const { data, loading, refetch } = useQuery(GET_KEY_HEALTH, {
+  const { data, loading, refetch } = useQuery<GetKeyHealthData>(GET_KEY_HEALTH, {
     variables: { roomId },
     fetchPolicy: 'cache-and-network',
     pollInterval: 15000, // auto-refresh every 15s as fallback to Socket.IO
@@ -158,7 +161,7 @@ export function KeyHealthDashboard({ roomId }: KeyHealthDashboardProps) {
     setRedelivering(userId);
     setRedeliveryMessage(null);
     try {
-      const { data: result } = await redeliverKey({ variables: { roomId, userId } });
+      const { data: result } = await redeliverKey({ variables: { roomId, userId } }) as { data: RedeliverKeyData };
       const { success, reason } = result.redeliverKey;
       setRedeliveryMessage({
         userId,

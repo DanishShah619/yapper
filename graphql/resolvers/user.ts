@@ -7,6 +7,7 @@ function toUserShape(user: {
   email: string;
   username: string;
   avatarUrl: string | null;
+  publicKey: string | null;
   createdAt: Date;
 }) {
   return {
@@ -14,6 +15,7 @@ function toUserShape(user: {
     email: user.email,
     username: user.username,
     avatarUrl: user.avatarUrl,
+    publicKey: user.publicKey,
     createdAt: user.createdAt,
   };
 }

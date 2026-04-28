@@ -16,6 +16,18 @@ NexChat is a full-stack, security-first social communication platform combining 
 - Secure file sharing (client-side encryption)
 - Forward-compatible schema (social feed, discovery, V2-ready)
 - Robust rate limiting, CSRF, and input validation
+- Real-time presence tracking via Socket.IO and Redis
+
+---
+
+## V2 Extension Points
+
+NexChat is designed to easily accommodate future scaling and feature additions:
+
+1. **Social Feed (`feed` query)**: Currently returns `[]`. In V2, this will support a reverse-chronological feed of friends' posts. The schema (`Post`, `FeedItem`) is already defined.
+2. **Discovery Algorithm (`peopleYouMayKnow` query)**: Currently a stub returning `[]`. In V2, this will use graph queries (e.g., analyzing mutual friends via Prisma/PostgreSQL or Neo4j) to suggest connections.
+3. **Federation & Interoperability**: The generic `User.publicKey` architecture can be extended for ActivityPub or Matrix integration.
+4. **Push Notifications**: Mobile push notifications can be integrated seamlessly via the `messageReceived` and `presenceUpdated` pub/sub events.
 
 ---
 

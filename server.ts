@@ -46,7 +46,17 @@ async function main() {
 
   // JWT auth middleware
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.headers['authorization'];
+    let token = socket.handshake.auth?.token || socket.handshake.headers['authorization'];
+    
+    // Fallback to cookie if HTTPOnly migration removed localStorage token
+    if (!token && socket.handshake.headers.cookie) {
+      const cookies = socket.handshake.headers.cookie.split(';').map(c => c.trim());
+      const tokenCookie = cookies.find(c => c.startsWith('nexchat_token='));
+      if (tokenCookie) {
+        token = tokenCookie.split('=')[1];
+      }
+    }
+
     if (!token) return next(new Error('Authentication required'));
     try {
       const payload = jwt.verify(token.replace('Bearer ', ''), JWT_SECRET);
@@ -60,6 +70,15 @@ async function main() {
   // Event namespaces
   io.on('connection', (socket) => {
     const userId = (socket as any).user?.userId as string | undefined;
+
+    // Verify token expiration on every incoming packet
+    socket.use((packet, next) => {
+      const exp = (socket as any).user?.exp;
+      if (exp && Date.now() >= exp * 1000) {
+        return next(new Error('Token expired'));
+      }
+      next();
+    });
 
     // Subscribe to personal channels for targeted events
     if (userId) {

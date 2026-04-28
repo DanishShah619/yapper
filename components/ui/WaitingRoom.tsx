@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, gql } from "@apollo/client";
+import { useMutation } from "@apollo/client/react";
+import { gql } from "@apollo/client";
 import { io } from "socket.io-client";
 import { Check, X, Users } from "lucide-react";
 

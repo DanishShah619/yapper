@@ -79,7 +79,7 @@ export const authResolvers = {
       // Rate limiting: 5 attempts per 15 minutes per IP
       const clientIp = context.clientIp || 'unknown';
       const rateLimitResult = await rateLimit(
-        `ratelimit:auth:${clientIp}`,
+        `ratelimit:auth:${clientIp}:${email.toLowerCase()}`,
         5,
         900 // 15 minutes
       );

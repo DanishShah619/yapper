@@ -15,6 +15,9 @@ export const videoResolvers = {
       // The frontend only requests this AFTER they are approved, or if they are the host.
       const room = await ctx.prisma.videoRoom.findUnique({ where: { id: args.roomId } });
       if (!room) throw new Error('Room not found');
+      if (room.locked && room.createdBy !== ctx.userId) {
+        throw new Error('Room is locked');
+      }
 
       const user = await ctx.prisma.user.findUnique({ where: { id: ctx.userId } });
       return await generateLiveKitToken(ctx.userId, args.roomId);
@@ -36,9 +39,10 @@ export const videoResolvers = {
         },
       });
 
+      const { randomUUID } = require('crypto');
       const updated = await ctx.prisma.videoRoom.update({
         where: { id: room.id },
-        data: { liveKitRoomId: room.id },
+        data: { liveKitRoomId: randomUUID() },
       });
 
       return updated;
@@ -56,7 +60,7 @@ export const videoResolvers = {
       if (room.createdBy !== ctx.userId) throw new Error('Only the host can approve participants');
 
       const removed = await ctx.redis.srem(RedisKeys.waitingRoom(args.roomId), args.participantId);
-      if (!removed) throw new Error('Participant not in waiting room');
+      if (removed === 0) throw new Error('Participant not in waiting room');
 
       ctx.pubsub.publish(`participantApproved:${args.roomId}:${args.participantId}`, true);
       ctx.pubsub.publish(`waitingRoomUpdated:${args.roomId}`, true);
@@ -76,7 +80,7 @@ export const videoResolvers = {
       if (room.createdBy !== ctx.userId) throw new Error('Only the host can reject participants');
 
       const removed = await ctx.redis.srem(RedisKeys.waitingRoom(args.roomId), args.participantId);
-      if (!removed) throw new Error('Participant not in waiting room');
+      if (removed === 0) throw new Error('Participant not in waiting room');
 
       ctx.pubsub.publish(`participantRejected:${args.roomId}:${args.participantId}`, true);
       ctx.pubsub.publish(`waitingRoomUpdated:${args.roomId}`, true);
@@ -131,6 +135,7 @@ export const videoResolvers = {
     },
     roomLocked: {
       subscribe: (_parent: unknown, args: { videoRoomId: string }, ctx: GraphQLContext) => {
+        if (!ctx.userId) throw new Error('Not authenticated');
         return ctx.pubsub.asyncIterator(`roomLocked:${args.videoRoomId}`);
       },
       resolve: (payload: unknown) => payload,

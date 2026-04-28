@@ -2,7 +2,8 @@
 
 import { useEffect, useState, use } from "react";
 import { LiveKitRoom, ControlBar, ParticipantTile, RoomAudioRenderer, GridLayout } from "@livekit/components-react";
-import { useQuery, useSubscription, gql } from "@apollo/client";
+import { useQuery, useSubscription } from "@apollo/client/react";
+import { gql } from "@apollo/client";
 import { io } from "socket.io-client";
 import WaitingRoomPanel from "@/components/ui/WaitingRoom";
 import "@livekit/components-styles";
@@ -34,15 +35,18 @@ const GET_ME = gql`
   }
 `;
 
+interface GetMeData { me: { id: string; username: string } | null }
+interface GetLiveKitTokenData { getLiveKitToken: string }
+
 export default function VideoPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   
   const [joined, setJoined] = useState(false);
   const [status, setStatus] = useState<"initial" | "waiting" | "approved" | "rejected">("initial");
   const [token, setToken] = useState("");
-  const { data: meData } = useQuery(GET_ME);
+  const { data: meData } = useQuery<GetMeData>(GET_ME);
 
-  const { data: tokenData, refetch: fetchToken } = useQuery(GET_LIVEKIT_TOKEN, {
+  const { data: tokenData, refetch: fetchToken } = useQuery<GetLiveKitTokenData>(GET_LIVEKIT_TOKEN, {
     variables: { roomId },
     skip: true, // Only fetch when approved
   });

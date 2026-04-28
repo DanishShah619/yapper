@@ -60,21 +60,9 @@ export const stubResolvers = {
     },
 
     // ─── Phase 4: Video ───────────────────────────────────────────────
-    createVideoRoom: async (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
-      if (!ctx.userId) throw new Error('Not authenticated');
-      throw new Error('Not yet implemented — Phase 4');
-    },
-    approveParticipant: async (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
-      if (!ctx.userId) throw new Error('Not authenticated');
-      throw new Error('Not yet implemented — Phase 4');
-    },
-    rejectParticipant: async (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
-      if (!ctx.userId) throw new Error('Not authenticated');
-      throw new Error('Not yet implemented — Phase 4');
-    },
-    lockVideoRoom: async (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
-      if (!ctx.userId) throw new Error('Not authenticated');
-      throw new Error('Not yet implemented — Phase 4');
-    },
+    // Video mutations (createVideoRoom, approveParticipant, rejectParticipant,
+    // lockVideoRoom) are fully implemented in graphql/resolvers/video.ts.
+    // Stubs removed — video.ts is spread after this file in resolvers/index.ts
+    // so it always wins. No dead throwing stubs needed.
   },
 };

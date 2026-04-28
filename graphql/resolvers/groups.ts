@@ -1,7 +1,6 @@
 import { GraphQLContext } from '@/graphql/context';
 import { v4 as uuidv4 } from 'uuid';
 import { isConnected } from '@/lib/connections';
-import crypto from 'crypto';
 
 // Inline type for GroupMember rows returned by Prisma findMany
 type GroupMemberRow = { id: string; groupId: string; userId: string; role: string; mutedAt: Date | null; joinedAt: Date };
@@ -43,66 +42,11 @@ async function getGroupWithMembersAndCreator(groupId: string, ctx: GraphQLContex
   return group;
 }
 
-// Function to rotate encryption keys for a group
-async function rotateKey(groupId: string, adminId: string, ctx: GraphQLContext) {
-  // Validate admin privileges
-  await requireAdmin(groupId, adminId, ctx);
-
-  // Fetch group members
-  const members = await ctx.prisma.groupMember.findMany({
-    where: { groupId },
-    include: { user: true },
-  });
-
-  // Generate new AES key
-  const newKey = crypto.randomBytes(32); // 256-bit key
-
-  // Encrypt new key for each member
-  const encryptedKeys = await Promise.all(
-    members.map(async (member) => {
-      const publicKey = member.user.publicKey;
-      if (!publicKey) {
-        throw new Error(`Missing public key for user ${member.userId}`);
-      }
-      return {
-        userId: member.userId,
-        encryptedKey: crypto.publicEncrypt(publicKey, newKey),
-      };
-    })
-  );
-
-  // Update group metadata with new key
-  await ctx.prisma.group.update({
-    where: { id: groupId },
-    data: { encryptionKey: newKey.toString('base64') },
-  });
-
-  // Notify members of key rotation
-  encryptedKeys.forEach(({ userId, encryptedKey }) => {
-    ctx.pubsub.publish(`GROUP_KEY_ROTATION_${userId}`, {
-      groupId,
-      encryptedKey: encryptedKey.toString('base64'),
-    });
-  });
-
-  return true;
-}
-
-// Modify removeMember to trigger key rotation
-async function removeMember(groupId: string, memberId: string, adminId: string, ctx: GraphQLContext) {
-  // Validate admin privileges
-  await requireAdmin(groupId, adminId, ctx);
-
-  // Remove member
-  await ctx.prisma.groupMember.delete({
-    where: { groupId_userId: { groupId, userId: memberId } },
-  });
-
-  // Rotate keys
-  await rotateKey(groupId, adminId, ctx);
-
-  return true;
-}
+// NOTE: Server-side key rotation helpers have been intentionally removed.
+// Generating or encrypting room/group keys server-side violates the E2EE model —
+// the server must never have access to plaintext key material.
+// Key rotation is handled client-side: admins generate new keys, wrap them per-member,
+// and submit via the submitRotatedGroupKeys mutation (see below).
 
 export const groupResolvers = {
   Mutation: {
@@ -219,13 +163,12 @@ export const groupResolvers = {
       const remaining = await ctx.prisma.groupMember.findMany({
         where: { groupId: args.groupId },
       });
-      // If no admin is online to rotate keys, queue the rotation request and notify all admins on next login.
-      // TODO: Implement fallback so any admin or backup can rotate keys if the primary admin is offline.
-      // Optionally, persist a rotation-required flag in the DB and check on admin login.
+      // E2EE model: server cannot rotate keys. We publish the requirement and clients
+      // must perform the rotation and submit the new shards via submitRotatedGroupKeys.
       ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
         groupId: args.groupId,
         remainingMemberIds: remaining.map((m) => m.userId),
-        rotationRequired: true, // for future extensibility
+        rotationRequired: true,
       });
 
       return true;
@@ -379,13 +322,12 @@ export const groupResolvers = {
       const remainingAfterLeave = await ctx.prisma.groupMember.findMany({
         where: { groupId: args.groupId },
       });
-      // If no admin is online to rotate keys, queue the rotation request and notify all admins on next login.
-      // TODO: Implement fallback so any admin or backup can rotate keys if the primary admin is offline.
-      // Optionally, persist a rotation-required flag in the DB and check on admin login.
+      // E2EE model: server cannot rotate keys. We publish the requirement and clients
+      // must perform the rotation and submit the new shards via submitRotatedGroupKeys.
       ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
         groupId: args.groupId,
         remainingMemberIds: remainingAfterLeave.map((m) => m.userId),
-        rotationRequired: true, // for future extensibility
+        rotationRequired: true,
       });
 
       return true;

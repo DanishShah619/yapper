@@ -20,7 +20,7 @@ export const sendConnectionRequestSchema = z.object({
 export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new Error(result.error.errors.map(e => e.message).join('; '));
+    throw new Error(result.error.issues.map((e: { message: string }) => e.message).join('; '));
   }
   return result.data;
 }
