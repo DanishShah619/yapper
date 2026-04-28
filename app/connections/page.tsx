@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useLazyQuery } from '@apollo/client/react';
+import { useQuery, useMutation, useLazyQuery, useSubscription } from '@apollo/client';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,7 +38,16 @@ const SEARCH_USER = gql`
 const CONNECTIONS_QUERY = gql`
   query Connections {
     connections {
-      id username avatarUrl createdAt
+      id username avatarUrl createdAt online
+    }
+  }
+`;
+
+const PRESENCE_SUBSCRIPTION = gql`
+  subscription PresenceUpdated {
+    presenceUpdated {
+      userId
+      online
     }
   }
 `;
@@ -93,6 +102,7 @@ interface User {
   username: string;
   avatarUrl?: string | null;
   createdAt?: string;
+  online?: boolean;
 }
 
 interface FriendshipRequest {
@@ -299,8 +309,8 @@ function ConnectionsTab() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-100">@{user.username}</p>
             <div className="flex items-center gap-1 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-              <span className="text-xs text-slate-500">Connected</span>
+              <div className={`w-1.5 h-1.5 rounded-full ${user.online ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+              <span className="text-xs text-slate-500">{user.online ? 'Online' : 'Offline'}</span>
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -430,6 +440,23 @@ export default function ConnectionsPage() {
     REQUESTS_QUERY,
     { pollInterval: 30000 } // poll every 30s for new requests
   );
+  
+  useSubscription(PRESENCE_SUBSCRIPTION, {
+    onData: ({ client, data }) => {
+      const event = data.data?.presenceUpdated;
+      if (event) {
+        client.cache.modify({
+          id: client.cache.identify({ __typename: 'User', id: event.userId }),
+          fields: {
+            online() {
+              return event.online;
+            }
+          }
+        });
+      }
+    }
+  });
+
   const pendingCount = requestsData?.connectionRequests?.length ?? 0;
 
   if (meLoading || requestsLoading) {

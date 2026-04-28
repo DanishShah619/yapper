@@ -39,6 +39,8 @@ const DateTimeScalar = new GraphQLScalarType({
 
 export const resolvers = {
   DateTime: DateTimeScalar,
+  
+  User: userResolvers.User,
 
   Query: {
     // Phase 1-2: Auth + social graph queries + V2 stubs
@@ -49,6 +51,8 @@ export const resolvers = {
     ...keyEscrowResolvers.Query,
     // Key Delivery Tracking queries (roomKeyHealth, memberKeyDeliveryDetails)
     ...keyDeliveryTrackingResolvers.Query,
+    // Phase 4: Video
+    ...videoResolvers.Query,
   },
 
   Mutation: {
@@ -71,6 +75,8 @@ export const resolvers = {
   },
 
   Subscription: {
+    // Phase 6: Presence
+    ...userResolvers.Subscription,
     // Phase 3: messageReceived
     ...messagingResolvers.Subscription,
     // Phase 5: groupMemberUpdated

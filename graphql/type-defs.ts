@@ -76,7 +76,13 @@ export const typeDefs = `#graphql
     username: String!
     avatarUrl: String
     publicKey: String
+    online: Boolean
     createdAt: DateTime!
+  }
+
+  type PresenceEvent {
+    userId: ID!
+    online: Boolean!
   }
 
   type AuthPayload {
@@ -216,6 +222,7 @@ export const typeDefs = `#graphql
     userPublicKeys(userIds: [ID!]!): [User!]!
     roomKeyHealth(roomId: ID!): KeyHealthReport!
     memberKeyDeliveryDetails(roomId: ID!): [MemberDeliveryDetail!]!
+    getLiveKitToken(roomId: ID!): String!
   }
 
   type Mutation {
@@ -270,7 +277,7 @@ export const typeDefs = `#graphql
 
   type Subscription {
     messageReceived(roomId: ID!): Message!
-    presenceUpdated(userId: ID!): Boolean!
+    presenceUpdated: PresenceEvent!
     waitingRoomUpdated(videoRoomId: ID!): Boolean!
     participantApproved(videoRoomId: ID!): Boolean!
     participantRejected(videoRoomId: ID!): Boolean!

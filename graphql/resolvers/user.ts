@@ -19,6 +19,18 @@ function toUserShape(user: {
 }
 
 export const userResolvers = {
+  // ─── Type Resolvers ────────────────────────────────────────────────────────
+  User: {
+    online: async (parent: { id: string }, _args: unknown, context: GraphQLContext) => {
+      try {
+        const val = await context.redis.get(`presence:${parent.id}`);
+        return !!val;
+      } catch (err) {
+        return false;
+      }
+    },
+  },
+
   // ─── Queries ───────────────────────────────────────────────────────────────
   Query: {
     // ── me ────────────────────────────────────────────────────────────────────
@@ -337,6 +349,17 @@ export const userResolvers = {
       if (deleted.count === 0) throw new Error('Connection not found');
 
       return true;
+    },
+  },
+
+  // ─── Subscriptions ─────────────────────────────────────────────────────────
+  Subscription: {
+    presenceUpdated: {
+      subscribe: (_parent: unknown, _args: unknown, context: GraphQLContext) => {
+        if (!context.userId) throw new Error('Not authenticated');
+        return context.pubsub.asyncIterator(`presenceUpdated:${context.userId}`);
+      },
+      resolve: (payload: any) => payload.presenceUpdated,
     },
   },
 };

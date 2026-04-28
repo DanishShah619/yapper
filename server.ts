@@ -13,6 +13,7 @@ import dotenv from 'dotenv';
 import { setIO } from './lib/socketIO';
 import { markShardAcknowledged, markShardDecrypted } from './lib/keyDelivery';
 import { prisma } from './lib/prisma';
+import { pubsub } from './graphql/context';
 
 dotenv.config();
 
@@ -77,11 +78,46 @@ async function main() {
       socket.leave(roomId);
     });
     // Presence events
-    socket.on('presence:online', () => {
-      // Implement presence logic (e.g., set Redis key)
+    socket.on('presence:heartbeat', async () => {
+      if (!userId) return;
+      const key = `presence:${userId}`;
+      const isNew = await pubClient.set(key, 'online', { EX: 30, NX: true });
+      if (isNew) {
+        // Just went online, notify friends
+        const friends = await prisma.friendship.findMany({
+          where: {
+            OR: [{ requesterId: userId }, { addresseeId: userId }],
+            status: 'ACCEPTED'
+          }
+        });
+        const friendIds = friends.map((f: any) => f.requesterId === userId ? f.addresseeId : f.requesterId);
+        friendIds.forEach((id: string) => {
+          pubsub.publish(`presenceUpdated:${id}`, {
+            presenceUpdated: { userId, online: true }
+          });
+        });
+      } else {
+        // Already online, just update TTL
+        await pubClient.set(key, 'online', { EX: 30 });
+      }
     });
-    socket.on('disconnect', () => {
-      // Handle disconnect, update presence
+
+    socket.on('disconnect', async () => {
+      if (!userId) return;
+      await pubClient.del(`presence:${userId}`);
+      
+      const friends = await prisma.friendship.findMany({
+        where: {
+          OR: [{ requesterId: userId }, { addresseeId: userId }],
+          status: 'ACCEPTED'
+        }
+      });
+      const friendIds = friends.map((f: any) => f.requesterId === userId ? f.addresseeId : f.requesterId);
+      friendIds.forEach((id: string) => {
+        pubsub.publish(`presenceUpdated:${id}`, {
+          presenceUpdated: { userId, online: false }
+        });
+      });
     });
     // Video/waiting room events
     socket.on('waiting:joined', async (data) => {
