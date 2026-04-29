@@ -1,100 +1,88 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { useMutation, useLazyQuery } from "@apollo/client/react";
+import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
+import { ChatSidebar } from "@/components/ui/ChatSidebar";
+import { ChatPanel } from "@/components/ui/ChatPanel";
+import { ChatEmptyState } from "@/components/ui/ChatEmptyState";
 
-const MESSAGES_QUERY = gql`
-  query Messages($roomId: String!) {
-    messages(roomId: $roomId) {
-      edges {
-        id
-        sender { username }
-        encryptedPayload
-        createdAt
-      }
-      pageInfo { hasNextPage endCursor }
+const GET_ME = gql`
+  query GetMe {
+    me { id username }
+  }
+`;
+
+const GET_CONVERSATION = gql`
+  query GetConversation($id: ID!) {
+    conversation(id: $id) {
+      id name type
+      createdBy
+      members { id username avatarUrl }
     }
   }
 `;
 
-const SEND_MESSAGE_MUTATION = gql`
-  mutation SendMessage($roomId: String!, $encryptedPayload: String!) {
-    sendMessage(roomId: $roomId, encryptedPayload: $encryptedPayload) {
-      id
-      sender { username }
-      encryptedPayload
-      createdAt
-    }
-  }
-`;
+export default function ChatPage() {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(true);
 
-export default function ChatPage({ roomId }: { roomId: string }) {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState("");
-  const [sendMessage] = useMutation(SEND_MESSAGE_MUTATION);
-  interface Message {
-    id: string;
-    sender: { username: string };
-    encryptedPayload: string;
-    createdAt: string;
-  }
+  const { data: meData } = useQuery<{ me: { id: string, username: string } }>(GET_ME);
+  const { data: convData } = useQuery<{ conversation: { id: string, name: string, type: string, createdBy: string, members: { id: string, username: string, avatarUrl: string | null }[] } }>(GET_CONVERSATION, {
+    variables: { id: activeId },
+    skip: !activeId,
+  });
 
-  interface MessagesData {
-    messages: {
-      edges: Message[];
-      pageInfo: { hasNextPage: boolean; endCursor: string };
-    };
-  }
+  const currentUserId = meData?.me?.id ?? "";
+  const activeConv = convData?.conversation;
 
-  const [fetchMessages, { data }] = useLazyQuery<MessagesData>(MESSAGES_QUERY);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const handleSelectConversation = (id: string) => {
+    setActiveId(id);
+    setShowSidebar(false);
+  };
 
-  useEffect(() => {
-    fetchMessages({ variables: { roomId } });
-  }, [roomId]);
-
-  useEffect(() => {
-    if (data && data.messages) {
-      setMessages(data.messages.edges);
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [data]);
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    // Encrypt message client-side (stub)
-    const encryptedPayload = btoa(input); // Replace with AES-GCM/Web Crypto
-    await sendMessage({ variables: { roomId, encryptedPayload } });
-    setInput("");
-    fetchMessages({ variables: { roomId } });
+  const handleBack = () => {
+    setShowSidebar(true);
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="flex-1 overflow-y-auto p-4">
-        {messages.map((msg) => (
-          <div key={msg.id} className="mb-2">
-            <span className="font-semibold text-blue-700">{msg.sender.username}</span>
-            <span className="ml-2 text-gray-800">{atob(msg.encryptedPayload)}</span>
-            <span className="ml-2 text-xs text-gray-500">{new Date(msg.createdAt).toLocaleTimeString()}</span>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+    <div className="flex h-screen overflow-hidden bg-[#F0F8FF]">
+      {/* Left Sidebar */}
+      <div className={`
+        ${showSidebar ? 'flex' : 'hidden'}
+        md:flex w-full md:w-80 h-full shrink-0
+      `}>
+        <div className="w-full">
+          <ChatSidebar
+            activeConversationId={activeId}
+            onSelectConversation={handleSelectConversation}
+          />
+        </div>
       </div>
-      <form onSubmit={handleSend} className="flex p-4 bg-white border-t">
-        <Input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 mr-2"
-        />
-        <Button type="submit">Send</Button>
-      </form>
+
+      {/* Right Panel */}
+      <div className={`
+        ${!showSidebar || activeId ? 'flex' : 'hidden'}
+        md:flex flex-1 h-full overflow-hidden
+      `}>
+        {activeId && activeConv ? (
+          <div className="w-full h-full">
+            <ChatPanel
+              conversationId={activeId}
+              conversationName={activeConv.name ?? "Conversation"}
+              conversationAvatar={null}
+              isGroup={activeConv.type === "GROUP"}
+              creatorId={activeConv.createdBy}
+              currentUserId={currentUserId}
+              onBack={handleBack}
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full hidden md:block">
+            <ChatEmptyState />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

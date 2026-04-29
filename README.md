@@ -80,6 +80,35 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ---
 
+## User Search
+
+The user search feature allows authenticated users to find other NexChat
+users by their exact username and send connection requests.
+
+### Accessing Search
+- **Dedicated page**: Navigate to `/search`
+- **Sidebar**: Click "Find People" in the left navigation
+
+### How It Works
+1. Type at least 2 characters in the search input
+2. After 300ms of no typing, the search fires automatically (debounced)
+3. If a user with that exact username exists, their card appears
+4. The card shows their avatar, username, and connection status:
+   - No badge = not connected yet (Add Connection button appears)
+   - Yellow "Pending" badge = request already sent
+   - Green "Connected" badge = already connected
+5. Clicking "Add Connection" sends a connection request
+
+### Technical Notes
+- Search uses the existing `user(username: String!): User` GraphQL query
+- Returns exactly 0 or 1 result (exact match only — no fuzzy search)
+- Fuzzy/partial search is planned for V2
+- Debounce is implemented via `lodash.debounce` (300ms)
+- Connection status is computed client-side from Apollo's cached
+  `connections` and `connectionRequests` query results
+
+---
+
 ## Environment Variables
 
 | Variable           | Description                        |

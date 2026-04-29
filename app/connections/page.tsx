@@ -159,7 +159,7 @@ export default function ConnectionsPage() {
                         <span className="bg-[#D0F5EE] text-[#0A7A65] text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-1">Connected</span>
                       </div>
                       <div className="relative group/menu">
-                        <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 text-sm transition-colors duration-150">
+                        <button title="verticle"className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 text-sm transition-colors duration-150">
                           <MoreVertical size={18} />
                         </button>
                         <div className="absolute right-0 top-full mt-1 bg-white border border-[#D6E8F5] rounded-xl shadow-xl w-32 hidden group-hover/menu:block z-10">
