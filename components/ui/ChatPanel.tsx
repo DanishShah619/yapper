@@ -1,13 +1,28 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Search, Video, MoreVertical, Paperclip, Clock, Send, Mic, ChevronLeft } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Search, Video, MoreVertical, Paperclip, Clock, Send, Mic, ChevronLeft, ChevronDown } from "lucide-react";
 import { ConversationAvatar } from "./ConversationAvatar";
 import { ChatBubble } from "./ChatBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { useChatMessages } from "@/lib/hooks/useChatMessages";
 import { useSendMessage } from "@/lib/hooks/useSendMessage";
 import { useRouter } from "next/navigation";
+import { getSocket } from "@/lib/socketClient";
+import debounce from "lodash.debounce";
+
+// Define the shape of a message ready for UI rendering
+type DecryptedMessage = {
+  id: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  timestamp: string;
+  ephemeral: boolean;
+  expiresAt?: string | null;
+  isPending?: boolean;
+  isFailed?: boolean;
+};
 
 interface ChatPanelProps {
   conversationId: string;
@@ -17,6 +32,39 @@ interface ChatPanelProps {
   creatorId: string;
   currentUserId: string;
   onBack?: () => void;
+  headerLoading?: boolean;
+  scrollPositions?: React.MutableRefObject<Map<string, number>>;
+}
+
+function groupMessagesByDate(messages: DecryptedMessage[]): Array<{
+  dateLabel: string
+  messages: DecryptedMessage[]
+}> {
+  const groups: Map<string, DecryptedMessage[]> = new Map()
+
+  for (const msg of messages) {
+    const date = new Date(msg.timestamp)
+    const now = new Date()
+    const diffDays = Math.floor(
+      (now.setHours(0,0,0,0) - date.setHours(0,0,0,0)) / 86400000
+    )
+
+    let label: string
+    if (diffDays === 0)      label = "Today"
+    else if (diffDays === 1) label = "Yesterday"
+    else if (diffDays < 7)   label = new Date(msg.timestamp)
+      .toLocaleDateString("en-GB", { weekday: "long" })
+    else                     label = new Date(msg.timestamp)
+      .toLocaleDateString("en-GB", { day: "numeric", month: "short", year: diffDays > 365 ? "numeric" : undefined })
+
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label)!.push(msg)
+  }
+
+  return Array.from(groups.entries()).map(([dateLabel, messages]) => ({
+    dateLabel,
+    messages,
+  }))
 }
 
 export function ChatPanel({
@@ -27,49 +75,172 @@ export function ChatPanel({
   creatorId,
   currentUserId,
   onBack,
+  headerLoading,
+  scrollPositions,
 }: ChatPanelProps) {
   const router = useRouter();
+  const socket = getSocket();
+
   const [inputText, setInputText] = useState("");
   const [ephemeral, setEphemeral] = useState(false);
   const [ttl, setTtl] = useState(300);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUserName, setTyping] = useState("");
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   
+  const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { messages, loading, fetchMore, canLoadMore } = useChatMessages(conversationId);
   const { sendMessage, loading: sendLoading } = useSendMessage();
 
-  // Decryption simulation — messages use sender.id (not senderId)
-  const decryptedMessages = messages.map((msg) => {
-    let content = msg.encryptedPayload;
-    if (content.startsWith("[ENCRYPTED] ")) {
-      content = content.replace("[ENCRYPTED] ", "");
-    } else {
-      content = "[Unable to decrypt]";
-    }
-    return { ...msg, content };
-  });
-
+  // Sync hook messages to local state for optimistic updates
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [decryptedMessages.length]);
+    const decrypted = messages.map((msg) => {
+      let content = msg.encryptedPayload;
+      if (content.startsWith("[ENCRYPTED] ")) {
+        content = content.replace("[ENCRYPTED] ", "");
+      } else {
+        content = "[Unable to decrypt]";
+      }
+      return {
+        id: msg.id,
+        content,
+        senderId: msg.sender.id,
+        senderName: msg.sender.username,
+        timestamp: msg.createdAt,
+        ephemeral: msg.ephemeral,
+        expiresAt: msg.expiresAt,
+        isPending: false,
+        isFailed: false,
+      };
+    });
+
+    setDecryptedMessages((prev) => {
+      const optimistic = prev.filter(m => m.isPending || m.isFailed);
+      const all = [...decrypted, ...optimistic].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      return all;
+    });
+  }, [messages]);
+
+  // Save scroll position on unmount / conversationId change
+  useEffect(() => {
+    return () => {
+      if (scrollContainerRef.current && scrollPositions) {
+        scrollPositions.current.set(conversationId, scrollContainerRef.current.scrollTop);
+      }
+    }
+  }, [conversationId, scrollPositions]);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    if (loading || !scrollContainerRef.current) return;
+    const saved = scrollPositions?.current.get(conversationId);
+    if (saved !== undefined) {
+      scrollContainerRef.current.scrollTop = saved;
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }, [conversationId, loading, scrollPositions]);
+
+  // Smart auto-scroll for new messages only
+  useEffect(() => {
+    if (decryptedMessages.length === 0) return;
+    const last = decryptedMessages[decryptedMessages.length - 1];
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    const isMine = last.senderId === currentUserId;
+    
+    if (isMine || nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else if (!last.isPending && !last.isFailed) {
+      setNewMsgCount(c => c + 1);
+    }
+  }, [decryptedMessages, currentUserId]);
+
+  // Reset newMsgCount on conversation change
+  useEffect(() => {
+    setNewMsgCount(0);
+  }, [conversationId]);
+
+  // Listen for typing events
+  useEffect(() => {
+    const handleStart = ({ roomId, userId, username }: { roomId: string; userId: string; username: string }) => {
+      if (roomId !== conversationId || userId === currentUserId) return;
+      setTypingUsers(prev => new Set(prev).add(username));
+    };
+
+    const handleStop = ({ roomId, username }: { roomId: string; username: string }) => {
+      if (roomId !== conversationId) return;
+      setTypingUsers(prev => {
+        const next = new Set(prev);
+        next.delete(username);
+        return next;
+      });
+    };
+
+    socket.on("typing:start", handleStart);
+    socket.on("typing:stop", handleStop);
+
+    return () => {
+      socket.off("typing:start", handleStart);
+      socket.off("typing:stop", handleStop);
+      setTypingUsers(new Set());
+    };
+  }, [conversationId, currentUserId, socket]);
 
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const emitTypingStop = useCallback(
+    debounce(() => {
+      socket.emit("typing:stop", { roomId: conversationId, userId: currentUserId });
+    }, 2000),
+    [conversationId, currentUserId, socket]
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const emitTypingStart = useCallback(
+    debounce(() => {
+      socket.emit("typing:start", { roomId: conversationId, userId: currentUserId });
+    }, 500, { leading: true, trailing: false }),
+    [conversationId, currentUserId, socket]
+  );
+
   function handleTyping() {
-    // emit typing indicator via Socket.IO
+    emitTypingStart();
+    emitTypingStop();
   }
 
   async function handleSend() {
     if (!inputText.trim()) return;
     const text = inputText.trim();
+    const sentAt = new Date().toISOString();
+    const optimisticId = `optimistic-${Date.now()}`;
+
     setInputText("");
     if (inputRef.current) inputRef.current.style.height = "auto";
+
+    // Append optimistic bubble
+    const optimistic: DecryptedMessage = {
+      id: optimisticId,
+      content: text,
+      senderId: currentUserId,
+      senderName: "You",
+      timestamp: sentAt,
+      ephemeral,
+      isPending: true,
+      isFailed: false,
+    };
+    
+    setDecryptedMessages(prev => [...prev, optimistic]);
 
     const success = await sendMessage({
       roomId: conversationId,
@@ -81,8 +252,27 @@ export function ChatPanel({
     });
 
     if (!success) {
+      setDecryptedMessages(prev =>
+        prev.map(m => m.id === optimisticId ? { ...m, isPending: false, isFailed: true } : m)
+      );
       setInputText(text);
+      return;
     }
+
+    // Success: subscription will deliver the real message.
+    setTimeout(() => {
+      setDecryptedMessages(prev =>
+        prev.filter(m => {
+          if (m.id !== optimisticId) return true;
+          const realExists = prev.some(other =>
+            other.id !== optimisticId &&
+            other.senderId === currentUserId &&
+            Math.abs(new Date(other.timestamp).getTime() - new Date(sentAt).getTime()) < 5000
+          );
+          return !realExists;
+        })
+      );
+    }, 500);
   }
 
   const formatTime = (isoDate: string) => {
@@ -90,22 +280,35 @@ export function ChatPanel({
   };
 
   const formatExpiresLabel = (isoDate: string) => {
-    // In a real app, calculate the relative time to expiration
     return "Expires soon";
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F0F8FF]">
+    <div className="flex flex-col h-full bg-[#F0F8FF] relative">
       <div className="bg-white border-b border-[#D6E8F5] px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm shadow-blue-50/50">
         <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150 md:hidden mr-1" onClick={onBack}>
           <ChevronLeft size={20} />
         </button>
         <ConversationAvatar src={conversationAvatar} name={conversationName} size="md" online={true} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-[#0A0A0A] truncate">{conversationName}</p>
-          <p className="text-xs font-medium text-[#6B7A99]">
-            {isGroup ? `Members` : "Online"}
-          </p>
+          {headerLoading ? (
+            <div className="flex-1 space-y-1.5">
+              <div className="bg-[#D6E8F5] animate-pulse rounded h-3.5 w-32" />
+              <div className="bg-[#D6E8F5] animate-pulse rounded h-3 w-20" />
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-[#0A0A0A] truncate">{conversationName}</p>
+              <p className={`text-xs font-medium transition-colors duration-150 ${
+                typingUsers.size > 0 ? "text-[#1ABC9C]" : "text-[#6B7A99]"
+              }`}>
+                {typingUsers.size > 0
+                  ? `${[...typingUsers][0]} is typing...`
+                  : isGroup ? "Members" : "Online"
+                }
+              </p>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150" title="Search in chat">
@@ -120,7 +323,16 @@ export function ChatPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-thin scrollbar-thumb-[#D6E8F5] scrollbar-track-transparent">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-thin scrollbar-thumb-[#D6E8F5] scrollbar-track-transparent"
+        onScroll={() => {
+          const el = scrollContainerRef.current;
+          if (!el) return;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+          if (atBottom) setNewMsgCount(0);
+        }}
+      >
         {canLoadMore && (
           <div className="flex justify-center mb-4">
             <button onClick={fetchMore} className="text-xs font-semibold text-[#1ABC9C] bg-[#D0F5EE] px-4 py-1.5 rounded-full hover:bg-[#BAD9F5] transition-colors">
@@ -129,7 +341,7 @@ export function ChatPanel({
           </div>
         )}
 
-        {loading && (
+        {loading && decryptedMessages.length === 0 && (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
               <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
@@ -139,21 +351,55 @@ export function ChatPanel({
           </div>
         )}
 
-        {decryptedMessages.map((msg) => (
-          <ChatBubble
-            key={msg.id}
-            content={msg.content}
-            isSent={msg.sender.id === currentUserId}
-            senderName={isGroup && msg.sender.id !== currentUserId ? msg.sender.username : undefined}
-            timestamp={formatTime(msg.createdAt)}
-            ephemeral={msg.ephemeral}
-            expiresLabel={msg.expiresAt ? formatExpiresLabel(msg.expiresAt) : undefined}
-          />
+        {groupMessagesByDate(decryptedMessages).map((group) => (
+          <React.Fragment key={group.dateLabel}>
+            <div className="flex justify-center my-3">
+              <span className="bg-[#E1F0FF] text-[#6B7A99] text-xs font-semibold px-3 py-1 rounded-full shadow-sm shadow-blue-100/50">
+                {group.dateLabel}
+              </span>
+            </div>
+            {group.messages.map((msg, idx) => {
+              const prev = idx > 0 ? group.messages[idx - 1] : null;
+              const isConsecutive = !!(prev &&
+                prev.senderId === msg.senderId &&
+                new Date(msg.timestamp).getTime() - new Date(prev.timestamp).getTime() < 120000);
+              
+              return (
+                <ChatBubble
+                  key={msg.id}
+                  content={msg.content}
+                  isSent={msg.senderId === currentUserId}
+                  senderName={isGroup && msg.senderId !== currentUserId ? msg.senderName : undefined}
+                  timestamp={formatTime(msg.timestamp)}
+                  ephemeral={msg.ephemeral}
+                  expiresLabel={msg.expiresAt ? formatExpiresLabel(msg.expiresAt) : undefined}
+                  isConsecutive={isConsecutive}
+                  isPending={msg.isPending}
+                  isFailed={msg.isFailed}
+                />
+              );
+            })}
+          </React.Fragment>
         ))}
 
-        {isTyping && <TypingIndicator name={typingUserName} />}
+        {typingUsers.size > 0 && <TypingIndicator name={[...typingUsers][0]} />}
         <div ref={messagesEndRef} />
       </div>
+
+      {newMsgCount > 0 && (
+        <div className="absolute bottom-20 right-4 z-10">
+          <button
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+              setNewMsgCount(0);
+            }}
+            className="bg-white border border-[#D6E8F5] shadow-md rounded-full px-3 py-1.5 text-xs font-bold text-[#0A0A0A] flex items-center gap-1.5 hover:bg-[#E1F0FF] transition-colors duration-150"
+          >
+            <ChevronDown size={14} className="text-[#1ABC9C]" />
+            {newMsgCount} new {newMsgCount === 1 ? "message" : "messages"}
+          </button>
+        </div>
+      )}
 
       <div className="bg-white border-t border-[#D6E8F5] px-4 py-3 shrink-0">
         <div className="flex items-end gap-3">

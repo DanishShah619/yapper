@@ -1,23 +1,3 @@
-/**
- * graphql/resolvers/messaging.ts
- *
- * Phase 3 — Messaging Core (PRD FR-5 through FR-7)
- *
- * Implements:
- *  - createRoom      Named rooms
- *  - createDM        DM conversation creation (idempotent, isConnected guard)
- *  - inviteToRoom    Add a connected user to a room
- *  - sendMessage     Unified room + group handler with:
- *                      • Ephemeral → Redis-only storage with TTL (fixes B-04)
- *                      • groupId support (fixes A-03)
- *                      • Muted-member check
- *                      • Locked-room check
- *  - messages        Cursor-based pagination (roomId OR groupId)
- *  - conversations   All rooms for current user (newest-message-first)
- *  - conversation    Single room by ID
- *  - updatePublicKey Upload ECDH public key for key exchange
- *  - messageReceived GraphQL subscription via in-process pubsub
- */
 
 import { randomUUID } from 'crypto';
 import { GraphQLContext } from '@/graphql/context';

@@ -31,9 +31,9 @@ export function ConversationItem({
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-3 cursor-pointer rounded-xl mx-1
-             ${isActive ? 'bg-[#BAD9F5]' : 'hover:bg-[#E1F0FF]'}
-             transition-colors duration-150`}
+      className={`flex items-center gap-3 px-4 py-3 cursor-pointer mx-1 rounded-xl
+        transition-colors duration-150
+        ${isActive ? 'bg-[#BAD9F5]' : 'hover:bg-[#E1F0FF]'}`}
     >
       <ConversationAvatar
         src={avatarUrl}
@@ -43,13 +43,19 @@ export function ConversationItem({
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-[#0A0A0A] truncate">{name}</span>
-          <span className="text-xs font-medium text-[#6B7A99] shrink-0 ml-2">
+          <span className={`text-sm truncate ${
+            unreadCount > 0 ? 'font-bold text-[#0A0A0A]' : 'font-semibold text-[#374151]'
+          }`}>{name}</span>
+          <span className={`text-xs font-medium shrink-0 ml-2 ${
+            unreadCount > 0 ? 'text-[#1ABC9C]' : 'text-[#6B7A99]'
+          }`}>
             {lastMessageTime}
           </span>
         </div>
         <div className="flex items-center justify-between mt-0.5">
-          <span className="text-xs font-medium text-[#6B7A99] truncate">
+          <span className={`text-xs truncate ${
+            unreadCount > 0 ? 'font-semibold text-[#1A1A2E]' : 'font-medium text-[#6B7A99]'
+          }`}>
             {lastMessage ?? "No messages yet"}
           </span>
           {unreadCount > 0 && (

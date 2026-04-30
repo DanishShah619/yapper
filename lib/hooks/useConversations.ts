@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery, useSubscription } from "@apollo/client/react";
+import { useQuery, useApolloClient } from "@apollo/client/react";
 import { gql } from "@apollo/client";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 // conversations returns [Room!]! — Room has id, name, type, locked, members, createdAt
 // Room does NOT have a messages sub-field in the schema, so we fetch conversations separately
@@ -28,10 +29,10 @@ const GET_ME_FOR_CONVERSATIONS = gql`
   }
 `;
 
-const MESSAGE_RECEIVED_SUB = gql`
-  subscription OnAnyMessage {
-    messageReceived(roomId: "") {
-      id roomId createdAt
+const MESSAGE_RECEIVED_SUB_SINGLE = gql`
+  subscription OnRoomMessage($roomId: ID!) {
+    messageReceived(roomId: $roomId) {
+      id createdAt ephemeral
     }
   }
 `;
@@ -59,6 +60,7 @@ export interface Conversation {
   lastMessageTime: string;
   unreadCount: number;
   memberIds: string[];
+  _sortKey?: string;
 }
 
 function formatTime(isoDate: string): string {
@@ -91,42 +93,85 @@ export function useConversations() {
     fetchPolicy: "cache-and-network",
   });
 
-  // Note: messageReceived subscription requires a specific roomId in the schema.
-  // We skip a global subscription for conversations list refresh and rely on polling via refetch.
-  // When the ChatPanel's per-room subscription fires, it won't automatically update the sidebar — 
-  // that is a V2 improvement (shared state / context). For now, conversations refresh on mount.
+  const apolloClient = useApolloClient();
+  const [updateTick, setUpdateTick] = useState(0);
+  const lastMsgMap = useRef<Map<string, {
+    time: string;       // formatted display string
+    preview: string;    // "🔒 Encrypted message" or "🔒 Ephemeral message"
+    rawTime: string;    // ISO string for sorting
+  }>>(new Map());
+
+  const MAX_ACTIVE_SUBSCRIPTIONS = 50;  // prevent browser WS limit exhaustion
+
+  useEffect(() => {
+    const rooms = data?.conversations ?? [];
+    if (rooms.length === 0) return;
+
+    // Cap subscriptions to the 50 most recently active rooms
+    const roomsToSubscribe = rooms.slice(0, MAX_ACTIVE_SUBSCRIPTIONS);
+
+    const subscriptions = roomsToSubscribe.map(room =>
+      apolloClient.subscribe<{ messageReceived: { id: string; createdAt: string; ephemeral: boolean } }>({
+        query: MESSAGE_RECEIVED_SUB_SINGLE,
+        variables: { roomId: room.id },
+      }).subscribe({
+        next({ data: subData }) {
+          const msg = subData?.messageReceived;
+          if (!msg) return;
+          lastMsgMap.current.set(room.id, {
+            time: formatTime(msg.createdAt),
+            rawTime: msg.createdAt,
+            preview: msg.ephemeral ? "🔒 Ephemeral message" : "🔒 Encrypted message",
+          });
+          setUpdateTick(t => t + 1);
+        },
+        error(err) {
+          console.error(`[NexChat] Subscription error for room ${room.id}:`, err);
+        },
+      })
+    );
+
+    // Cleanup: unsubscribe all when conversations list changes or component unmounts
+    return () => subscriptions.forEach(s => s.unsubscribe());
+  }, [data?.conversations?.length, apolloClient]);
 
   const myId = meData?.me?.id;
 
-  const conversations: Conversation[] = (data?.conversations ?? []).map((room) => {
-    let name = room.name ?? "Conversation";
-    let avatarUrl: string | null = null;
+  const conversations: Conversation[] = useMemo(() => {
+    return (data?.conversations ?? [])
+      .map(room => {
+        let name = room.name ?? "Conversation";
+        let avatarUrl: string | null = null;
 
-    // For 1-to-1 DMs, derive name from the other member
-    if (room.type === "PERSISTENT" || room.type === "EPHEMERAL") {
-      const otherMember = room.members.find((m) => m.user.id !== myId);
-      if (otherMember && !room.name) {
-        name = otherMember.user.username;
-        avatarUrl = otherMember.user.avatarUrl;
-      }
-    }
+        const otherMember = room.members.find(m => m.user.id !== myId);
+        if (otherMember && !room.name) {
+          name = otherMember.user.username;
+          avatarUrl = otherMember.user.avatarUrl;
+        }
 
-    // If there's only 1 member (the current user), use the room name
-    if (room.members.length === 1) {
-      name = room.name ?? "Room";
-    }
+        if (room.members.length === 1 && !room.name) {
+          name = "Room";
+        }
 
-    return {
-      id: room.id,
-      name,
-      avatarUrl,
-      isGroup: false, // Room type doesn't distinguish groups — groups use the groups query
-      lastMessagePreview: "🔒 Encrypted message",
-      lastMessageTime: formatTime(room.createdAt),
-      unreadCount: 0,
-      memberIds: room.members.map((m) => m.user.id),
-    };
-  });
+        const lastEntry = lastMsgMap.current.get(room.id);
+
+        return {
+          id: room.id,
+          name,
+          avatarUrl,
+          isGroup: false,
+          lastMessagePreview: lastEntry?.preview ?? "🔒 Encrypted message",
+          lastMessageTime: lastEntry?.time ?? formatTime(room.createdAt),
+          unreadCount: 0,
+          memberIds: room.members.map(m => m.user.id),
+          _sortKey: lastEntry?.rawTime ?? room.createdAt,  // internal only
+        };
+      })
+      .sort((a, b) =>
+        new Date(b._sortKey!).getTime() - new Date(a._sortKey!).getTime()
+      )
+      .map(({ _sortKey, ...rest }) => rest);  // strip internal field before returning
+  }, [data, myId, updateTick]);
 
   return { conversations, loading, error, refetch };
 }

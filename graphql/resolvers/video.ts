@@ -105,9 +105,9 @@ export const videoResolvers = {
       });
 
       await ctx.redis.set(RedisKeys.videoRoomLock(args.roomId), "1", "EX", 86400);
-      
+
       ctx.pubsub.publish(`roomLocked:${args.roomId}`, true);
-      
+
       return updatedRoom;
     },
   },

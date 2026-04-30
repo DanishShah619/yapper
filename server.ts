@@ -47,7 +47,7 @@ async function main() {
   // JWT auth middleware
   io.use((socket, next) => {
     let token = socket.handshake.auth?.token || socket.handshake.headers['authorization'];
-    
+
     // Fallback to cookie if HTTPOnly migration removed localStorage token
     if (!token && socket.handshake.headers.cookie) {
       const cookies = socket.handshake.headers.cookie.split(';').map(c => c.trim());
@@ -124,7 +124,7 @@ async function main() {
     socket.on('disconnect', async () => {
       if (!userId) return;
       await pubClient.del(`presence:${userId}`);
-      
+
       const friends = await prisma.friendship.findMany({
         where: {
           OR: [{ requesterId: userId }, { addresseeId: userId }],
@@ -142,11 +142,11 @@ async function main() {
     socket.on('waiting:joined', async (data) => {
       const { roomId, user } = data;
       if (!roomId || !userId) return;
-      
+
       try {
         // Add to Redis waiting room set
         await pubClient.sAdd(`waitingroom:${roomId}`, userId);
-        
+
         // Let the host/admin know the waiting room was updated
         io.to(`videoadmin:${roomId}`).emit('waiting:joined', { roomId, user });
       } catch (err) {
@@ -215,7 +215,7 @@ async function main() {
   });
 
   // Next.js request handler
-  server.all('*', (req, res) => handle(req, res));
+  server.all(/.*/, (req, res) => handle(req, res));
 
   const port = process.env.PORT || 3000;
   httpServer.listen(port, () => {

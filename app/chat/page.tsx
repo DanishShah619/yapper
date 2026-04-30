@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense, useRef } from "react";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { ChatSidebar } from "@/components/ui/ChatSidebar";
 import { ChatPanel } from "@/components/ui/ChatPanel";
 import { ChatEmptyState } from "@/components/ui/ChatEmptyState";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const GET_ME = gql`
   query GetMe {
@@ -23,12 +24,17 @@ const GET_CONVERSATION = gql`
   }
 `;
 
-export default function ChatPage() {
-  const [activeId, setActiveId] = useState<string | null>(null);
+function ChatPageInner() {
   const [showSidebar, setShowSidebar] = useState(true);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeId = searchParams.get("room");
+
+  // Keep track of scroll positions for chats
+  const scrollPositions = useRef<Map<string, number>>(new Map());
 
   const { data: meData } = useQuery<{ me: { id: string, username: string } }>(GET_ME);
-  const { data: convData } = useQuery<{ conversation: { id: string, name: string, type: string, createdBy: string, members: { id: string, username: string, avatarUrl: string | null }[] } }>(GET_CONVERSATION, {
+  const { data: convData, loading: convLoading } = useQuery<{ conversation: { id: string, name: string, type: string, createdBy: string, members: { id: string, username: string, avatarUrl: string | null }[] } }>(GET_CONVERSATION, {
     variables: { id: activeId },
     skip: !activeId,
   });
@@ -37,7 +43,7 @@ export default function ChatPage() {
   const activeConv = convData?.conversation;
 
   const handleSelectConversation = (id: string) => {
-    setActiveId(id);
+    router.replace(`/chat?room=${id}`, { scroll: false });
     setShowSidebar(false);
   };
 
@@ -65,16 +71,18 @@ export default function ChatPage() {
         ${!showSidebar || activeId ? 'flex' : 'hidden'}
         md:flex flex-1 h-full overflow-hidden
       `}>
-        {activeId && activeConv ? (
+        {activeId ? (
           <div className="w-full h-full">
             <ChatPanel
               conversationId={activeId}
-              conversationName={activeConv.name ?? "Conversation"}
+              conversationName={activeConv?.name ?? "Conversation"}
               conversationAvatar={null}
-              isGroup={activeConv.type === "GROUP"}
-              creatorId={activeConv.createdBy}
+              isGroup={activeConv?.type === "GROUP"}
+              creatorId={activeConv?.createdBy ?? ""}
               currentUserId={currentUserId}
               onBack={handleBack}
+              headerLoading={convLoading}
+              scrollPositions={scrollPositions}
             />
           </div>
         ) : (
@@ -84,5 +92,17 @@ export default function ChatPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen bg-[#F0F8FF] items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#1ABC9C] border-t-transparent animate-spin" />
+      </div>
+    }>
+      <ChatPageInner />
+    </Suspense>
   );
 }
