@@ -10,6 +10,12 @@ import { useSendMessage } from "@/lib/hooks/useSendMessage";
 import { useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socketClient";
 import debounce from "lodash.debounce";
+import {
+  decryptMessage,
+  getDMRoomKey,
+  getOrCreateKeyPair,
+  loadRoomKey,
+} from "@/lib/e2ee";
 
 // Define the shape of a message ready for UI rendering
 type DecryptedMessage = {
@@ -29,8 +35,15 @@ interface ChatPanelProps {
   conversationName: string;
   conversationAvatar: string | null;
   isGroup: boolean;
-  creatorId: string;
   currentUserId: string;
+  conversationMembers: Array<{
+    user: {
+      id: string;
+      username: string;
+      avatarUrl: string | null;
+      publicKey: string | null;
+    };
+  }>;
   onBack?: () => void;
   headerLoading?: boolean;
   scrollPositions?: React.MutableRefObject<Map<string, number>>;
@@ -72,8 +85,8 @@ export function ChatPanel({
   conversationName,
   conversationAvatar,
   isGroup,
-  creatorId,
   currentUserId,
+  conversationMembers,
   onBack,
   headerLoading,
   scrollPositions,
@@ -98,38 +111,72 @@ export function ChatPanel({
 
   // Sync hook messages to local state for optimistic updates
   useEffect(() => {
-    const decrypted = messages.map((msg) => {
-      let content = msg.encryptedPayload;
-      if (content.startsWith("[ENCRYPTED] ")) {
-        content = content.replace("[ENCRYPTED] ", "");
-      } else {
-        content = "[Unable to decrypt]";
+    let cancelled = false;
+
+    async function decryptMessages() {
+      let roomKey = await loadRoomKey(conversationId);
+
+      if (!roomKey && conversationMembers.length <= 2 && currentUserId) {
+        const { privateKey } = await getOrCreateKeyPair();
+        const otherMember = conversationMembers.find((member) => member.user.id !== currentUserId)?.user;
+        const peerPublicKey = otherMember?.publicKey ?? conversationMembers[0]?.user.publicKey;
+
+        if (privateKey && peerPublicKey) {
+          roomKey = await getDMRoomKey(conversationId, privateKey, peerPublicKey);
+        }
       }
-      return {
-        id: msg.id,
-        content,
-        senderId: msg.sender.id,
-        senderName: msg.sender.username,
-        timestamp: msg.createdAt,
-        ephemeral: msg.ephemeral,
-        expiresAt: msg.expiresAt,
-        isPending: false,
-        isFailed: false,
-      };
+
+      const decrypted = await Promise.all(messages.map(async (msg) => {
+        let content = "[Unable to decrypt]";
+
+        if (roomKey) {
+          try {
+            content = await decryptMessage(msg.encryptedPayload, roomKey);
+          } catch {
+            content = "[Unable to decrypt]";
+          }
+        }
+
+        return {
+          id: msg.id,
+          content,
+          senderId: msg.sender.id,
+          senderName: msg.sender.username,
+          timestamp: msg.createdAt,
+          ephemeral: msg.ephemeral,
+          expiresAt: msg.expiresAt,
+          isPending: false,
+          isFailed: false,
+        };
+      }));
+
+      if (cancelled) return;
+
+      setDecryptedMessages((prev) => {
+        const optimistic = prev.filter(m => m.isPending || m.isFailed);
+        const all = [...decrypted, ...optimistic].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return all;
+      });
+    }
+
+    decryptMessages().catch(() => {
+      if (!cancelled) {
+        setDecryptedMessages((prev) => prev.filter(m => m.isPending || m.isFailed));
+      }
     });
 
-    setDecryptedMessages((prev) => {
-      const optimistic = prev.filter(m => m.isPending || m.isFailed);
-      const all = [...decrypted, ...optimistic].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      return all;
-    });
-  }, [messages]);
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, conversationId, conversationMembers, currentUserId]);
 
   // Save scroll position on unmount / conversationId change
   useEffect(() => {
+    const positions = scrollPositions?.current;
+    const container = scrollContainerRef.current;
     return () => {
-      if (scrollContainerRef.current && scrollPositions) {
-        scrollPositions.current.set(conversationId, scrollContainerRef.current.scrollTop);
+      if (container && positions) {
+        positions.set(conversationId, container.scrollTop);
       }
     }
   }, [conversationId, scrollPositions]);
@@ -248,7 +295,6 @@ export function ChatPanel({
       ephemeral,
       ttl: ephemeral ? ttl : undefined,
       currentUserId,
-      creatorId,
     });
 
     if (!success) {
@@ -279,7 +325,7 @@ export function ChatPanel({
     return new Date(isoDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatExpiresLabel = (isoDate: string) => {
+  const formatExpiresLabel = () => {
     return "Expires soon";
   };
 
@@ -372,7 +418,7 @@ export function ChatPanel({
                   senderName={isGroup && msg.senderId !== currentUserId ? msg.senderName : undefined}
                   timestamp={formatTime(msg.timestamp)}
                   ephemeral={msg.ephemeral}
-                  expiresLabel={msg.expiresAt ? formatExpiresLabel(msg.expiresAt) : undefined}
+                  expiresLabel={msg.expiresAt ? formatExpiresLabel() : undefined}
                   isConsecutive={isConsecutive}
                   isPending={msg.isPending}
                   isFailed={msg.isFailed}

@@ -24,6 +24,12 @@ const handle = app.getRequestHandler();
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
+type SocketUser = {
+  userId?: string;
+  username?: string;
+  exp?: number;
+};
+
 async function main() {
   await app.prepare();
   const server = express();
@@ -60,20 +66,21 @@ async function main() {
     if (!token) return next(new Error('Authentication required'));
     try {
       const payload = jwt.verify(token.replace('Bearer ', ''), JWT_SECRET);
-      (socket as any).user = payload;
+      if (typeof payload === 'string') return next(new Error('Invalid token'));
+      socket.data.user = payload as SocketUser;
       next();
-    } catch (err) {
+    } catch {
       next(new Error('Invalid token'));
     }
   });
 
   // Event namespaces
   io.on('connection', (socket) => {
-    const userId = (socket as any).user?.userId as string | undefined;
+    const userId = (socket.data.user as SocketUser | undefined)?.userId;
 
     // Verify token expiration on every incoming packet
     socket.use((packet, next) => {
-      const exp = (socket as any).user?.exp;
+      const exp = (socket.data.user as SocketUser | undefined)?.exp;
       if (exp && Date.now() >= exp * 1000) {
         return next(new Error('Token expired'));
       }
@@ -86,15 +93,53 @@ async function main() {
       socket.join(`user:${userId}`);
     }
 
-    // Messaging events
-    socket.on('message:new', (data) => {
-      io.to(data.roomId).emit('message:new', data);
-    });
-    socket.on('joinRoom', (roomId) => {
-      socket.join(roomId);
+    async function canAccessConversation(conversationId: string) {
+      if (!userId || !conversationId) return false;
+
+      const [roomMember, groupMember] = await Promise.all([
+        prisma.roomMember.findFirst({
+          where: { roomId: conversationId, userId },
+          select: { id: true },
+        }),
+        prisma.groupMember.findFirst({
+          where: { groupId: conversationId, userId },
+          select: { id: true },
+        }),
+      ]);
+
+      return Boolean(roomMember || groupMember);
+    }
+
+    // Messaging events. Message creation happens through GraphQL; Socket.IO is the
+    // authenticated delivery channel for saved messages and typing indicators.
+    socket.on('joinRoom', async (roomId) => {
+      if (typeof roomId !== 'string') return;
+      if (await canAccessConversation(roomId)) {
+        socket.join(roomId);
+      }
     });
     socket.on('leaveRoom', (roomId) => {
-      socket.leave(roomId);
+      if (typeof roomId === 'string') {
+        socket.leave(roomId);
+      }
+    });
+    socket.on('typing:start', async (data) => {
+      const roomId = data?.roomId;
+      if (typeof roomId !== 'string' || !(await canAccessConversation(roomId))) return;
+      socket.to(roomId).emit('typing:start', {
+        roomId,
+        userId,
+        username: (socket.data.user as SocketUser | undefined)?.username ?? 'Someone',
+      });
+    });
+    socket.on('typing:stop', async (data) => {
+      const roomId = data?.roomId;
+      if (typeof roomId !== 'string' || !(await canAccessConversation(roomId))) return;
+      socket.to(roomId).emit('typing:stop', {
+        roomId,
+        userId,
+        username: (socket.data.user as SocketUser | undefined)?.username ?? 'Someone',
+      });
     });
     // Presence events
     socket.on('presence:heartbeat', async () => {
@@ -109,7 +154,7 @@ async function main() {
             status: 'ACCEPTED'
           }
         });
-        const friendIds = friends.map((f: any) => f.requesterId === userId ? f.addresseeId : f.requesterId);
+        const friendIds = friends.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
         friendIds.forEach((id: string) => {
           pubsub.publish(`presenceUpdated:${id}`, {
             presenceUpdated: { userId, online: true }
@@ -131,7 +176,7 @@ async function main() {
           status: 'ACCEPTED'
         }
       });
-      const friendIds = friends.map((f: any) => f.requesterId === userId ? f.addresseeId : f.requesterId);
+      const friendIds = friends.map(f => f.requesterId === userId ? f.addresseeId : f.requesterId);
       friendIds.forEach((id: string) => {
         pubsub.publish(`presenceUpdated:${id}`, {
           presenceUpdated: { userId, online: false }

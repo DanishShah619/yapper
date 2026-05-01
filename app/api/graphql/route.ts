@@ -52,7 +52,7 @@ export const GET = withSecurityHeaders(async (request: NextRequest) => {
 
 
 export const POST = withSecurityHeaders(async (request: NextRequest) => {
-  if (!validateCsrfToken(request)) {
+  if (!(await validateCsrfToken(request))) {
     return Response.json({ error: 'Invalid CSRF token' }, { status: 403 });
   }
   return handler(request);

@@ -1,45 +1,64 @@
+import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma';
+import { generateToken } from '@/lib/auth';
+import { setSession } from '@/lib/session';
 import { generateCsrfToken, setCsrfCookie } from '@/lib/csrf';
+import { rateLimit } from '@/lib/rate-limit';
 import { withSecurityHeaders } from '@/lib/security-headers';
 
-// Execute GraphQL server-side
-async function executeGraphQL(query: string, variables: any) {
-  const res = await fetch(`http://localhost:${process.env.PORT || 3000}/api/graphql`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables }),
-  });
-  return res.json();
-}
+type LoginBody = {
+  email: string;
+  password: string;
+};
 
 export const POST = withSecurityHeaders(async (request: Request) => {
-  const { email, password } = await request.json();
+  const { email, password } = await request.json() as LoginBody;
+  const normalizedEmail = email.toLowerCase();
 
-  const result = await executeGraphQL(`
-    mutation Login($email: String!, $password: String!) {
-      login(email: $email, password: $password) {
-        token
-      }
-    }
-  `, { email, password });
+  const clientIp =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
 
-  if (result.errors || !result.data?.login?.token) {
-    return Response.json({ error: result.errors?.[0]?.message || 'Invalid credentials' }, { status: 401 });
+  const rateLimitResult = await rateLimit(
+    `ratelimit:auth:${clientIp}:${normalizedEmail}`,
+    5,
+    900,
+  );
+
+  if (!rateLimitResult.allowed) {
+    return Response.json(
+      { error: 'Too many login attempts. Please try again in 15 minutes.' },
+      { status: 429 },
+    );
   }
 
-  const jwt = result.data.login.token;
-  const csrfToken = generateCsrfToken();
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
 
+  if (!user) {
+    return Response.json({ error: 'Invalid email or password' }, { status: 401 });
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return Response.json({ error: 'Invalid email or password' }, { status: 401 });
+  }
+
+  const jwt = generateToken(user.id);
+  await setSession(user.id, jwt);
+
+  const csrfToken = generateCsrfToken();
   (await cookies()).set('nexchat_token', jwt, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7 // 7 days
+    maxAge: 60 * 60 * 24 * 7,
   });
+  await setCsrfCookie(csrfToken);
 
-  setCsrfCookie(csrfToken);
-  return Response.json({ success: true })
+  return Response.json({ success: true });
 });
-  
-

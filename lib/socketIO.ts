@@ -27,3 +27,8 @@ export function getIO(): SocketIOServer {
   }
   return _io;
 }
+
+/** Returns the Socket.IO server when the custom server is running. */
+export function tryGetIO(): SocketIOServer | null {
+  return _io;
+}

@@ -30,9 +30,10 @@ export default function LoginPage() {
       }
 
       // No localStorage -- handled via httpOnly cookies
+      window.dispatchEvent(new Event('nexchat:auth-changed'));
       router.push('/');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
       setLoading(false);
     }
   };

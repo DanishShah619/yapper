@@ -55,9 +55,10 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
+      window.dispatchEvent(new Event('nexchat:auth-changed'));
       router.push('/');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
       setLoading(false);
     }
   };

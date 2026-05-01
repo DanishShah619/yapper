@@ -2,6 +2,7 @@
 import { randomUUID } from 'crypto';
 import { GraphQLContext } from '@/graphql/context';
 import { isConnected } from '@/lib/connections';
+import { tryGetIO } from '@/lib/socketIO';
 
 // ─── Ephemeral TTL whitelist (seconds) ───────────────────────────────────────
 const ALLOWED_TTL = new Set([30, 300, 3600, 86400, 604800]);
@@ -47,6 +48,10 @@ function toMsgShape(m: {
     expiresAt: m.expiresAt,
     createdAt: m.createdAt,
   };
+}
+
+function emitRealtimeMessage(targetId: string, message: ReturnType<typeof toMsgShape>) {
+  tryGetIO()?.to(targetId).emit('message:new', message);
 }
 
 export const messagingResolvers = {
@@ -418,6 +423,7 @@ export const messagingResolvers = {
         await ctx.redis.expire(bufferKey, bufferTtl);
 
         ctx.pubsub.publish(channel, msg);
+        emitRealtimeMessage(args.roomId ?? args.groupId!, msg);
         return msg;
       }
 
@@ -436,6 +442,7 @@ export const messagingResolvers = {
 
       const shaped = toMsgShape(message);
       ctx.pubsub.publish(channel, shaped);
+      emitRealtimeMessage(args.roomId ?? args.groupId!, shaped);
       return shaped;
     },
   },

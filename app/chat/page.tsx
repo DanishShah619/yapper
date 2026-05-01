@@ -18,11 +18,30 @@ const GET_CONVERSATION = gql`
   query GetConversation($id: ID!) {
     conversation(id: $id) {
       id name type
-      createdBy
-      members { id username avatarUrl }
+      members {
+        user { id username avatarUrl publicKey }
+      }
     }
   }
 `;
+
+type ConversationMember = {
+  user: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+    publicKey: string | null;
+  };
+};
+
+type ConversationData = {
+  conversation: {
+    id: string;
+    name: string | null;
+    type: string;
+    members: ConversationMember[];
+  } | null;
+};
 
 function ChatPageInner() {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -34,7 +53,7 @@ function ChatPageInner() {
   const scrollPositions = useRef<Map<string, number>>(new Map());
 
   const { data: meData } = useQuery<{ me: { id: string, username: string } }>(GET_ME);
-  const { data: convData, loading: convLoading } = useQuery<{ conversation: { id: string, name: string, type: string, createdBy: string, members: { id: string, username: string, avatarUrl: string | null }[] } }>(GET_CONVERSATION, {
+  const { data: convData, loading: convLoading } = useQuery<ConversationData>(GET_CONVERSATION, {
     variables: { id: activeId },
     skip: !activeId,
   });
@@ -77,9 +96,9 @@ function ChatPageInner() {
               conversationId={activeId}
               conversationName={activeConv?.name ?? "Conversation"}
               conversationAvatar={null}
-              isGroup={activeConv?.type === "GROUP"}
-              creatorId={activeConv?.createdBy ?? ""}
+              isGroup={false}
               currentUserId={currentUserId}
+              conversationMembers={activeConv?.members ?? []}
               onBack={handleBack}
               headerLoading={convLoading}
               scrollPositions={scrollPositions}

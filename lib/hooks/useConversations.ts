@@ -1,11 +1,10 @@
 "use client";
 
-import { useQuery, useApolloClient } from "@apollo/client/react";
+import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getSocket } from "@/lib/socketClient";
 
-// conversations returns [Room!]! — Room has id, name, type, locked, members, createdAt
-// Room does NOT have a messages sub-field in the schema, so we fetch conversations separately
 const GET_CONVERSATIONS = gql`
   query GetConversations {
     conversations {
@@ -22,18 +21,9 @@ const GET_CONVERSATIONS = gql`
   }
 `;
 
-// We get "me" to identify which member is the current user in DMs
 const GET_ME_FOR_CONVERSATIONS = gql`
   query GetMeForConversations {
     me { id }
-  }
-`;
-
-const MESSAGE_RECEIVED_SUB_SINGLE = gql`
-  subscription OnRoomMessage($roomId: ID!) {
-    messageReceived(roomId: $roomId) {
-      id createdAt ephemeral
-    }
   }
 `;
 
@@ -51,6 +41,14 @@ type RoomNode = {
   members: RoomMemberNode[];
 };
 
+type MessageEvent = {
+  id: string;
+  roomId: string | null;
+  groupId: string | null;
+  createdAt: string;
+  ephemeral: boolean;
+};
+
 export interface Conversation {
   id: string;
   name: string;
@@ -60,8 +58,9 @@ export interface Conversation {
   lastMessageTime: string;
   unreadCount: number;
   memberIds: string[];
-  _sortKey?: string;
 }
+
+type SortableConversation = Conversation & { sortKey: string };
 
 function formatTime(isoDate: string): string {
   const date = new Date(isoDate);
@@ -93,47 +92,51 @@ export function useConversations() {
     fetchPolicy: "cache-and-network",
   });
 
-  const apolloClient = useApolloClient();
-  const [updateTick, setUpdateTick] = useState(0);
-  const lastMsgMap = useRef<Map<string, {
-    time: string;       // formatted display string
-    preview: string;    // "🔒 Encrypted message" or "🔒 Ephemeral message"
-    rawTime: string;    // ISO string for sorting
+  const [lastMsgMap, setLastMsgMap] = useState<Map<string, {
+    time: string;
+    preview: string;
+    rawTime: string;
   }>>(new Map());
 
-  const MAX_ACTIVE_SUBSCRIPTIONS = 50;  // prevent browser WS limit exhaustion
+  const maxActiveSubscriptions = 50;
 
   useEffect(() => {
     const rooms = data?.conversations ?? [];
     if (rooms.length === 0) return;
 
-    // Cap subscriptions to the 50 most recently active rooms
-    const roomsToSubscribe = rooms.slice(0, MAX_ACTIVE_SUBSCRIPTIONS);
+    const socket = getSocket();
+    const roomsToSubscribe = rooms.slice(0, maxActiveSubscriptions);
+    const roomIds = new Set(roomsToSubscribe.map(room => room.id));
 
-    const subscriptions = roomsToSubscribe.map(room =>
-      apolloClient.subscribe<{ messageReceived: { id: string; createdAt: string; ephemeral: boolean } }>({
-        query: MESSAGE_RECEIVED_SUB_SINGLE,
-        variables: { roomId: room.id },
-      }).subscribe({
-        next({ data: subData }) {
-          const msg = subData?.messageReceived;
-          if (!msg) return;
-          lastMsgMap.current.set(room.id, {
-            time: formatTime(msg.createdAt),
-            rawTime: msg.createdAt,
-            preview: msg.ephemeral ? "🔒 Ephemeral message" : "🔒 Encrypted message",
-          });
-          setUpdateTick(t => t + 1);
-        },
-        error(err) {
-          console.error(`[NexChat] Subscription error for room ${room.id}:`, err);
-        },
-      })
-    );
+    const joinRooms = () => {
+      roomsToSubscribe.forEach(room => socket.emit("joinRoom", room.id));
+    };
 
-    // Cleanup: unsubscribe all when conversations list changes or component unmounts
-    return () => subscriptions.forEach(s => s.unsubscribe());
-  }, [data?.conversations?.length, apolloClient]);
+    const handleMessage = (msg: MessageEvent) => {
+      const conversationId = msg.roomId ?? msg.groupId;
+      if (!conversationId || !roomIds.has(conversationId)) return;
+
+      setLastMsgMap(prev => {
+        const next = new Map(prev);
+        next.set(conversationId, {
+          time: formatTime(msg.createdAt),
+          rawTime: msg.createdAt,
+          preview: msg.ephemeral ? "Encrypted ephemeral message" : "Encrypted message",
+        });
+        return next;
+      });
+    };
+
+    if (socket.connected) joinRooms();
+    socket.on("connect", joinRooms);
+    socket.on("message:new", handleMessage);
+
+    return () => {
+      socket.off("connect", joinRooms);
+      socket.off("message:new", handleMessage);
+      roomsToSubscribe.forEach(room => socket.emit("leaveRoom", room.id));
+    };
+  }, [data?.conversations]);
 
   const myId = meData?.me?.id;
 
@@ -153,25 +156,34 @@ export function useConversations() {
           name = "Room";
         }
 
-        const lastEntry = lastMsgMap.current.get(room.id);
+        const lastEntry = lastMsgMap.get(room.id);
 
         return {
           id: room.id,
           name,
           avatarUrl,
           isGroup: false,
-          lastMessagePreview: lastEntry?.preview ?? "🔒 Encrypted message",
+          lastMessagePreview: lastEntry?.preview ?? "Encrypted message",
           lastMessageTime: lastEntry?.time ?? formatTime(room.createdAt),
           unreadCount: 0,
           memberIds: room.members.map(m => m.user.id),
-          _sortKey: lastEntry?.rawTime ?? room.createdAt,  // internal only
-        };
+          sortKey: lastEntry?.rawTime ?? room.createdAt,
+        } satisfies SortableConversation;
       })
       .sort((a, b) =>
-        new Date(b._sortKey!).getTime() - new Date(a._sortKey!).getTime()
+        new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime()
       )
-      .map(({ _sortKey, ...rest }) => rest);  // strip internal field before returning
-  }, [data, myId, updateTick]);
+      .map(conversation => ({
+        id: conversation.id,
+        name: conversation.name,
+        avatarUrl: conversation.avatarUrl,
+        isGroup: conversation.isGroup,
+        lastMessagePreview: conversation.lastMessagePreview,
+        lastMessageTime: conversation.lastMessageTime,
+        unreadCount: conversation.unreadCount,
+        memberIds: conversation.memberIds,
+      }));
+  }, [data, myId, lastMsgMap]);
 
   return { conversations, loading, error, refetch };
 }
