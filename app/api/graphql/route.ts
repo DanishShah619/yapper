@@ -38,6 +38,7 @@ const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(ser
       prisma,
       redis,
       userId,
+      sessionToken: token ?? null,
       clientIp,
       pubsub,
     };

@@ -6,7 +6,7 @@ import client from '@/lib/apollo-client';
 import { useCallback, useEffect, createContext, useContext, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { ToastContainer, useToast } from '@/components/ui/Toast';
-import { getSocket } from '@/lib/socketClient';
+import { getSocket, reconnectSocket } from '@/lib/socketClient';
 
 const SocketContext = createContext<{ socket: Socket | null }>({ socket: null });
 
@@ -56,7 +56,7 @@ function KeyInitialiser() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [socket] = useState<Socket | null>(() =>
-    typeof window === 'undefined' ? null : getSocket()
+    typeof window === 'undefined' ? null : getSocket({ connect: false })
   );
   const { toasts, dismissToast } = useToast();
 
@@ -72,6 +72,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => {
       clearInterval(heartbeatInterval);
     };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const connectAfterAuthChange = () => {
+      reconnectSocket();
+    };
+
+    window.addEventListener('nexchat:auth-changed', connectAfterAuthChange);
+    return () => window.removeEventListener('nexchat:auth-changed', connectAfterAuthChange);
   }, [socket]);
 
   return (

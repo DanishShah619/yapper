@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useQuery, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
+import { disconnectSocket } from '@/lib/socketClient';
 
 const ME_QUERY = gql`
   query Me {
@@ -37,6 +38,7 @@ export default function DashboardPage() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
+      disconnectSocket();
       client.clearStore();
       router.push('/login');
     }

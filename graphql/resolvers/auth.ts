@@ -130,8 +130,8 @@ export const authResolvers = {
         throw new Error('Not authenticated');
       }
 
-      // Delete Redis session immediately
-      await deleteSession(context.userId);
+      // Delete only the current device/session.
+      await deleteSession(context.userId, context.sessionToken ?? undefined);
       return true;
     },
   },

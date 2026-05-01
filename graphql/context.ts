@@ -20,6 +20,7 @@ export interface GraphQLContext {
   prisma: typeof prismaClient;
   redis: Redis;
   userId: string | null;
+  sessionToken: string | null;
   clientIp: string;
   pubsub: RedisPubSub;
 }

@@ -8,12 +8,12 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import next from 'next';
-import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { setIO } from './lib/socketIO';
 import { markShardAcknowledged, markShardDecrypted } from './lib/keyDelivery';
 import { prisma } from './lib/prisma';
 import { pubsub } from './graphql/context';
+import { verifyToken, validateSession } from './lib/auth';
 
 dotenv.config();
 
@@ -22,13 +22,25 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 type SocketUser = {
   userId?: string;
   username?: string;
   exp?: number;
 };
+
+function getCookieValue(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader) return null;
+
+  const cookie = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+
+  if (!cookie) return null;
+
+  return decodeURIComponent(cookie.slice(name.length + 1));
+}
 
 async function main() {
   await app.prepare();
@@ -51,22 +63,18 @@ async function main() {
   setIO(io);
 
   // JWT auth middleware
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     let token = socket.handshake.auth?.token || socket.handshake.headers['authorization'];
 
     // Fallback to cookie if HTTPOnly migration removed localStorage token
-    if (!token && socket.handshake.headers.cookie) {
-      const cookies = socket.handshake.headers.cookie.split(';').map(c => c.trim());
-      const tokenCookie = cookies.find(c => c.startsWith('nexchat_token='));
-      if (tokenCookie) {
-        token = tokenCookie.split('=')[1];
-      }
-    }
+    if (!token) token = getCookieValue(socket.handshake.headers.cookie, 'nexchat_token');
 
     if (!token) return next(new Error('Authentication required'));
     try {
-      const payload = jwt.verify(token.replace('Bearer ', ''), JWT_SECRET);
-      if (typeof payload === 'string') return next(new Error('Invalid token'));
+      const normalizedToken = String(token).replace('Bearer ', '');
+      const userId = await validateSession(normalizedToken);
+      const payload = verifyToken(normalizedToken);
+      if (!userId || !payload) return next(new Error('Invalid token'));
       socket.data.user = payload as SocketUser;
       next();
     } catch {

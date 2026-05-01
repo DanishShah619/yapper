@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import { getSession } from './session';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nexchat-dev-secret-change-in-production-2025';
@@ -7,6 +8,7 @@ const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] =
 
 export interface JwtPayload {
   userId: string;
+  jti?: string;
   iat?: number;
   exp?: number;
 }
@@ -15,7 +17,10 @@ export interface JwtPayload {
  * Generate a signed JWT for a user.
  */
 export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign({ userId }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
+    jwtid: randomUUID(),
+  });
 }
 
 /**
@@ -48,7 +53,7 @@ export async function validateSession(token: string): Promise<string | null> {
   if (!payload) return null;
 
   // Check if session still exists in Redis (not logged out)
-  const cachedToken = await getSession(payload.userId);
+  const cachedToken = await getSession(payload.userId, token);
   if (!cachedToken || cachedToken !== token) return null;
 
   return payload.userId;
