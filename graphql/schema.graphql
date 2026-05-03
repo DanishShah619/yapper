@@ -249,6 +249,7 @@ type Query {
 
   # Video
   videoRoom(id: ID!): VideoRoom
+  liveKitToken(roomId: ID!): String!
   getLiveKitToken(roomId: ID!): String!
 
   # V2 Stubs

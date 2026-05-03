@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { LiveKitRoom, VideoConference, useLocalParticipant } from '@livekit/components-react';
-import { Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff } from 'lucide-react';
+import { Copy, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff } from 'lucide-react';
 import { WaitingRoomPanel } from '@/components/ui/WaitingRoomPanel';
 import { useToast } from '@/components/ui/Toast';
 
@@ -23,7 +23,7 @@ const LOCK_VIDEO_ROOM = gql`
 
 const GET_VIDEO_ROOM_STATUS = gql`
   query GetVideoRoomStatus($id: ID!) {
-    videoRoom(id: $id) { id locked createdBy }
+    videoRoom(id: $id) { id locked createdBy liveKitRoomId maxParticipants }
   }
 `;
 
@@ -139,7 +139,13 @@ export default function VideoRoomPage() {
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
   const { data: statusData, refetch: refetchStatus } = useQuery<{
-    videoRoom: { id: string; locked: boolean; createdBy: string } | null;
+    videoRoom: {
+      id: string;
+      locked: boolean;
+      createdBy: string;
+      liveKitRoomId: string | null;
+      maxParticipants: number;
+    } | null;
   }>(GET_VIDEO_ROOM_STATUS, { variables: { id } });
   
   const [lockVideoRoom] = useMutation(LOCK_VIDEO_ROOM, {
@@ -159,9 +165,20 @@ export default function VideoRoomPage() {
 
   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7880";
   const token = tokenData?.getLiveKitToken;
+  const roomInfo = statusData?.videoRoom;
+  const joinUrl = typeof window === 'undefined' ? `/video/${id}/waiting` : `${window.location.origin}/video/${id}/waiting`;
 
-  const isAdmin = statusData?.videoRoom?.createdBy === meData?.me?.id;
-  const isLocked = statusData?.videoRoom?.locked || false;
+  const isAdmin = roomInfo?.createdBy === meData?.me?.id;
+  const isLocked = roomInfo?.locked || false;
+
+  const copyText = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(`${label} copied`, 'success');
+    } catch {
+      showToast(`Could not copy ${label.toLowerCase()}`, 'error');
+    }
+  };
 
   const handleDisconnect = () => {
     router.push('/video');
@@ -169,6 +186,55 @@ export default function VideoRoomPage() {
 
   return (
     <div className="flex flex-col bg-[#0A0A0A] h-screen relative">
+      <div className="absolute left-4 right-4 top-4 z-30 rounded-xl border border-white/10 bg-[#111111]/85 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-[#1ABC9C]">Video room</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isLocked ? 'bg-[#7C3AED] text-white' : 'bg-[#D0F5EE] text-[#0A7A65]'}`}>
+                {isLocked ? 'Locked' : 'Open'}
+              </span>
+              {isAdmin && (
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white">
+                  Host
+                </span>
+              )}
+            </div>
+            <div className="mt-2 grid gap-1 text-xs font-medium text-white/75 md:grid-cols-2">
+              <p className="truncate">
+                Room ID: <span className="font-mono text-white">{id}</span>
+              </p>
+              <p className="truncate">
+                LiveKit ID: <span className="font-mono text-white">{roomInfo?.liveKitRoomId ?? 'Pending'}</span>
+              </p>
+              <p className="truncate">
+                Join URL: <span className="font-mono text-white">{joinUrl}</span>
+              </p>
+              <p>
+                Limit: <span className="text-white">{roomInfo?.maxParticipants ?? 4} participants</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => copyText(id, 'Room ID')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/20"
+            >
+              <Copy size={14} />
+              Room ID
+            </button>
+            <button
+              type="button"
+              onClick={() => copyText(joinUrl, 'Join URL')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#1ABC9C] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#17a589]"
+            >
+              <Copy size={14} />
+              Join URL
+            </button>
+          </div>
+        </div>
+      </div>
       <div className="flex-1 overflow-hidden">
         {token ? (
           <LiveKitRoom

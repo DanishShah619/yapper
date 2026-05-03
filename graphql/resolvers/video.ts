@@ -18,6 +18,14 @@ export const videoResolvers = {
       return room;
     },
 
+    liveKitToken: async (
+      _parent: unknown,
+      args: { roomId: string },
+      ctx: GraphQLContext
+    ) => {
+      return videoResolvers.Query.getLiveKitToken(_parent, args, ctx);
+    },
+
     getLiveKitToken: async (
       _parent: unknown,
       args: { roomId: string },

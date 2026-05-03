@@ -227,6 +227,7 @@ export const typeDefs = `#graphql
     roomKeyHealth(roomId: ID!): KeyHealthReport!
     memberKeyDeliveryDetails(roomId: ID!): [MemberDeliveryDetail!]!
     videoRoom(id: ID!): VideoRoom
+    liveKitToken(roomId: ID!): String!
     getLiveKitToken(roomId: ID!): String!
   }
 
