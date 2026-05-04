@@ -85,6 +85,8 @@ type Message {
   encryptedPayload: String!
   ephemeral: Boolean!
   expiresAt: DateTime
+  editedAt: DateTime
+  deletedAt: DateTime
   createdAt: DateTime!
 }
 
@@ -280,6 +282,8 @@ type Mutation {
 
   # Messages
   sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int, fileId: ID): Message!
+  updateMessage(id: ID!, encryptedPayload: String!): Message!
+  deleteMessage(id: ID!): Message!
 
   # Files
   uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!

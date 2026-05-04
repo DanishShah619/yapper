@@ -15,6 +15,7 @@ import client from "@/lib/apollo-client";
 import {
   decryptFile,
   decryptMessage,
+  encryptMessage,
   getDMRoomKey,
   getOrCreateKeyPair,
   loadRoomKey,
@@ -43,6 +44,42 @@ const FILE_DOWNLOAD_QUERY = gql`
   }
 `;
 
+const UPDATE_MESSAGE_MUTATION = gql`
+  mutation UpdateMessage($id: ID!, $encryptedPayload: String!) {
+    updateMessage(id: $id, encryptedPayload: $encryptedPayload) {
+      id
+      roomId
+      groupId
+      encryptedPayload
+      ephemeral
+      expiresAt
+      editedAt
+      deletedAt
+      createdAt
+      sender { id username avatarUrl }
+      file { id encryptedMetadata createdAt uploader { id username avatarUrl } }
+    }
+  }
+`;
+
+const DELETE_MESSAGE_MUTATION = gql`
+  mutation DeleteMessage($id: ID!) {
+    deleteMessage(id: $id) {
+      id
+      roomId
+      groupId
+      encryptedPayload
+      ephemeral
+      expiresAt
+      editedAt
+      deletedAt
+      createdAt
+      sender { id username avatarUrl }
+      file { id encryptedMetadata createdAt uploader { id username avatarUrl } }
+    }
+  }
+`;
+
 // Define the shape of a message ready for UI rendering
 type DecryptedMessage = {
   id: string;
@@ -52,6 +89,8 @@ type DecryptedMessage = {
   timestamp: string;
   ephemeral: boolean;
   expiresAt?: string | null;
+  editedAt?: string | null;
+  deletedAt?: string | null;
   attachment?: ChatAttachment | null;
   isPending?: boolean;
   isFailed?: boolean;
@@ -62,6 +101,20 @@ type DownloadFileData = {
     id: string;
     encryptedBlob: string | null;
   } | null;
+};
+
+type MessageMutationData = {
+  updateMessage?: {
+    id: string;
+    encryptedPayload: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+  };
+  deleteMessage?: {
+    id: string;
+    editedAt: string | null;
+    deletedAt: string | null;
+  };
 };
 
 function isSupportedAttachment(file: File): boolean {
@@ -169,6 +222,8 @@ export function ChatPanel({
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   
   const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
 
@@ -201,7 +256,9 @@ export function ChatPanel({
         let content = "[Unable to decrypt]";
         let attachment: ChatAttachment | null = null;
 
-        if (roomKey) {
+        if (msg.deletedAt) {
+          content = "Message deleted";
+        } else if (roomKey) {
           try {
             content = await decryptMessage(msg.encryptedPayload, roomKey);
           } catch {
@@ -240,6 +297,8 @@ export function ChatPanel({
           timestamp: msg.createdAt,
           ephemeral: msg.ephemeral,
           expiresAt: msg.expiresAt,
+          editedAt: msg.editedAt,
+          deletedAt: msg.deletedAt,
           attachment,
           isPending: false,
           isFailed: false,
@@ -433,6 +492,80 @@ export function ChatPanel({
     }
   }
 
+  function startEditingMessage(message: DecryptedMessage) {
+    if (message.deletedAt || message.isPending || message.isFailed) return;
+    setEditingMessageId(message.id);
+    setEditingText(message.content);
+    setAttachmentError(null);
+  }
+
+  function cancelEditingMessage() {
+    setEditingMessageId(null);
+    setEditingText("");
+  }
+
+  async function handleUpdateMessage() {
+    if (!editingMessageId || !editingText.trim()) return;
+
+    try {
+      const roomKey = await loadRoomKey(conversationId);
+      if (!roomKey) throw new Error("Room key unavailable");
+
+      const encryptedPayload = await encryptMessage(editingText.trim(), roomKey);
+      const { data } = await client.mutate<MessageMutationData>({
+        mutation: UPDATE_MESSAGE_MUTATION,
+        variables: {
+          id: editingMessageId,
+          encryptedPayload,
+        },
+      });
+
+      const updated = data?.updateMessage;
+      setDecryptedMessages((prev) => prev.map((message) => (
+        message.id === editingMessageId
+          ? {
+              ...message,
+              content: editingText.trim(),
+              editedAt: updated?.editedAt ?? new Date().toISOString(),
+              deletedAt: updated?.deletedAt ?? null,
+            }
+          : message
+      )));
+      cancelEditingMessage();
+    } catch (error) {
+      console.error(error);
+      setAttachmentError(error instanceof Error ? error.message : "Could not edit this message.");
+    }
+  }
+
+  async function handleDeleteMessage(messageId: string) {
+    const shouldDelete = window.confirm("Delete this message?");
+    if (!shouldDelete) return;
+
+    try {
+      const { data } = await client.mutate<MessageMutationData>({
+        mutation: DELETE_MESSAGE_MUTATION,
+        variables: { id: messageId },
+      });
+
+      const deletedAt = data?.deleteMessage?.deletedAt ?? new Date().toISOString();
+      setDecryptedMessages((prev) => prev.map((message) => (
+        message.id === messageId
+          ? {
+              ...message,
+              content: "Message deleted",
+              attachment: null,
+              deletedAt,
+            }
+          : message
+      )));
+      if (editingMessageId === messageId) cancelEditingMessage();
+    } catch (error) {
+      console.error(error);
+      setAttachmentError(error instanceof Error ? error.message : "Could not delete this message.");
+    }
+  }
+
   async function handleSend() {
     if (!inputText.trim() && !selectedFile) return;
     if (selectedFile && ephemeral) {
@@ -606,6 +739,11 @@ export function ChatPanel({
                   timestamp={formatTime(msg.timestamp)}
                   attachment={msg.attachment}
                   onDownloadAttachment={msg.attachment ? () => handleDownloadAttachment(msg.attachment!) : undefined}
+                  canModify={msg.senderId === currentUserId && !msg.ephemeral}
+                  onEdit={() => startEditingMessage(msg)}
+                  onDelete={() => handleDeleteMessage(msg.id)}
+                  edited={!!msg.editedAt}
+                  deleted={!!msg.deletedAt}
                   ephemeral={msg.ephemeral}
                   expiresLabel={msg.expiresAt ? formatExpiresLabel() : undefined}
                   isConsecutive={isConsecutive}
@@ -637,6 +775,44 @@ export function ChatPanel({
       )}
 
       <div className="bg-white border-t border-[#D6E8F5] px-4 py-3 shrink-0">
+        {editingMessageId && (
+          <div className="mb-2 rounded-lg border border-[#D6E8F5] bg-[#F0F8FF] px-3 py-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-[#1ABC9C]">Editing message</span>
+              <button
+                type="button"
+                onClick={cancelEditingMessage}
+                className="rounded-md px-2 py-1 text-xs font-semibold text-[#6B7A99] transition-colors hover:bg-[#E1F0FF] hover:text-[#0A0A0A]"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={editingText}
+                onChange={(event) => setEditingText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleUpdateMessage();
+                  }
+                  if (event.key === "Escape") {
+                    cancelEditingMessage();
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-lg border border-[#D6E8F5] bg-white px-3 py-2 text-sm font-medium text-[#0A0A0A] outline-none focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#D0F5EE]"
+              />
+              <button
+                type="button"
+                onClick={handleUpdateMessage}
+                disabled={!editingText.trim()}
+                className="rounded-lg bg-[#1ABC9C] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#17a589] disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
         {selectedFile && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-[#D6E8F5] bg-[#F0F8FF] px-3 py-2">
             <Paperclip size={16} className="shrink-0 text-[#1ABC9C]" />

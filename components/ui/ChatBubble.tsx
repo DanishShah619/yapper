@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCheck, Clock, Download, FileText, ImageIcon, Video } from "lucide-react";
+import { CheckCheck, Clock, Download, FileText, ImageIcon, Pencil, Trash2, Video } from "lucide-react";
 
 export type ChatAttachment = {
   id: string;
@@ -15,6 +15,11 @@ interface ChatBubbleProps {
   timestamp: string;
   attachment?: ChatAttachment | null;
   onDownloadAttachment?: () => void;
+  canModify?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  edited?: boolean;
+  deleted?: boolean;
   ephemeral?: boolean;
   expiresLabel?: string;
   isConsecutive?: boolean;
@@ -41,6 +46,11 @@ export function ChatBubble({
   timestamp,
   attachment,
   onDownloadAttachment,
+  canModify,
+  onEdit,
+  onDelete,
+  edited,
+  deleted,
   ephemeral,
   expiresLabel,
   isConsecutive,
@@ -60,9 +70,13 @@ export function ChatBubble({
       )}
 
       <div className={bubbleClass}>
-        {content && <p className="leading-relaxed whitespace-pre-wrap">{content}</p>}
+        {content && (
+          <p className={`leading-relaxed whitespace-pre-wrap ${deleted ? 'italic text-[#6B7A99]' : ''}`}>
+            {content}
+          </p>
+        )}
 
-        {attachment && (
+        {attachment && !deleted && (
           <button
             type="button"
             onClick={onDownloadAttachment}
@@ -91,6 +105,9 @@ export function ChatBubble({
               <Clock size={10} /> {expiresLabel}
             </span>
           )}
+          {edited && !deleted && (
+            <span className="text-[10px] text-[#6B7A99]">edited</span>
+          )}
           <span className="text-[10px] text-[#6B7A99]">{timestamp}</span>
           {isSent && (
             isPending
@@ -99,6 +116,26 @@ export function ChatBubble({
           )}
         </div>
       </div>
+      {canModify && !deleted && !isPending && !isFailed && (
+        <div className="mt-1 flex items-center gap-1 px-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="rounded-md p-1 text-[#6B7A99] transition-colors hover:bg-[#E1F0FF] hover:text-[#0A0A0A]"
+            title="Edit message"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="rounded-md p-1 text-[#6B7A99] transition-colors hover:bg-[#FEE2E2] hover:text-[#DC2626]"
+            title="Delete message"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
       {isFailed && (
         <span className="text-[10px] text-[#DC2626] font-semibold mt-1 cursor-pointer">
           Failed — tap to retry

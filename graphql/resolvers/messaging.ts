@@ -36,7 +36,7 @@ function toRoomShape(room: {
 function toMsgShape(m: {
   id: string; roomId: string | null; groupId: string | null;
   fileId?: string | null;
-  encryptedPayload: string; ephemeral: boolean; expiresAt: Date | null; createdAt: Date;
+  encryptedPayload: string; ephemeral: boolean; expiresAt: Date | null; editedAt?: Date | null; deletedAt?: Date | null; createdAt: Date;
   sender: { id: string; email: string; username: string; avatarUrl: string | null; publicKey: string | null; createdAt: Date };
   file?: {
     id: string; roomId: string; encryptedMetadata: string; encryptedBlob?: Buffer | Uint8Array | null; createdAt: Date;
@@ -52,6 +52,8 @@ function toMsgShape(m: {
     encryptedPayload: m.encryptedPayload,
     ephemeral: m.ephemeral,
     expiresAt: m.expiresAt,
+    editedAt: m.editedAt ?? null,
+    deletedAt: m.deletedAt ?? null,
     createdAt: m.createdAt,
   };
 }
@@ -72,6 +74,14 @@ function toFileShape(file: {
 
 function emitRealtimeMessage(targetId: string, message: ReturnType<typeof toMsgShape>) {
   tryGetIO()?.to(targetId).emit('message:new', message);
+}
+
+function emitRealtimeMessageUpdate(targetId: string, message: ReturnType<typeof toMsgShape>) {
+  tryGetIO()?.to(targetId).emit('message:updated', message);
+}
+
+function emitRealtimeMessageDelete(targetId: string, message: ReturnType<typeof toMsgShape>) {
+  tryGetIO()?.to(targetId).emit('message:deleted', message);
 }
 
 export const messagingResolvers = {
@@ -477,6 +487,8 @@ export const messagingResolvers = {
           encryptedPayload: args.encryptedPayload,
           ephemeral: true,
           expiresAt,
+          editedAt: null,
+          deletedAt: null,
           createdAt: now,
         };
 
@@ -510,6 +522,72 @@ export const messagingResolvers = {
       const shaped = toMsgShape(message);
       ctx.pubsub.publish(channel, shaped);
       emitRealtimeMessage(args.roomId ?? args.groupId!, shaped);
+      return shaped;
+    },
+
+    updateMessage: async (
+      _parent: unknown,
+      args: { id: string; encryptedPayload: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+      if (!args.encryptedPayload?.trim()) throw new Error('encryptedPayload is required');
+
+      const existing = await ctx.prisma.message.findUnique({
+        where: { id: args.id },
+        select: {
+          id: true,
+          senderId: true,
+          roomId: true,
+          groupId: true,
+          deletedAt: true,
+        },
+      });
+      if (!existing) throw new Error('Message not found');
+      if (existing.senderId !== ctx.userId) throw new Error('Only the sender can edit this message');
+      if (existing.deletedAt) throw new Error('Cannot edit a deleted message');
+
+      const message = await ctx.prisma.message.update({
+        where: { id: args.id },
+        data: {
+          encryptedPayload: args.encryptedPayload,
+          editedAt: new Date(),
+        },
+        include: { sender: true, file: { include: { uploader: true } } },
+      });
+
+      const shaped = toMsgShape(message);
+      emitRealtimeMessageUpdate(existing.roomId ?? existing.groupId!, shaped);
+      return shaped;
+    },
+
+    deleteMessage: async (
+      _parent: unknown,
+      args: { id: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const existing = await ctx.prisma.message.findUnique({
+        where: { id: args.id },
+        select: {
+          id: true,
+          senderId: true,
+          roomId: true,
+          groupId: true,
+        },
+      });
+      if (!existing) throw new Error('Message not found');
+      if (existing.senderId !== ctx.userId) throw new Error('Only the sender can delete this message');
+
+      const message = await ctx.prisma.message.update({
+        where: { id: args.id },
+        data: { deletedAt: new Date() },
+        include: { sender: true, file: { include: { uploader: true } } },
+      });
+
+      const shaped = toMsgShape(message);
+      emitRealtimeMessageDelete(existing.roomId ?? existing.groupId!, shaped);
       return shaped;
     },
   },

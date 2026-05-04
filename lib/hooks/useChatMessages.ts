@@ -16,6 +16,8 @@ const GET_MESSAGES = gql`
         encryptedPayload
         ephemeral
         expiresAt
+        editedAt
+        deletedAt
         createdAt
         sender { id username avatarUrl }
         file { id encryptedMetadata createdAt uploader { id username avatarUrl } }
@@ -35,6 +37,8 @@ type MessageNode = {
   encryptedPayload: string;
   ephemeral: boolean;
   expiresAt: string | null;
+  editedAt: string | null;
+  deletedAt: string | null;
   createdAt: string;
   sender: { id: string; username: string; avatarUrl: string | null };
   file: {
@@ -116,14 +120,27 @@ export function useChatMessages(roomId: string | null) {
         );
       });
     };
+    const handleMessageUpdate = (updatedMessage: MessageNode) => {
+      if (updatedMessage.roomId !== roomId && updatedMessage.groupId !== roomId) return;
+      setRealtimeMessages((prev) => {
+        const withoutUpdated = prev.filter((message) => message.id !== updatedMessage.id);
+        return [...withoutUpdated, updatedMessage].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      });
+    };
 
     if (socket.connected) join();
     socket.on("connect", join);
     socket.on("message:new", handleMessage);
+    socket.on("message:updated", handleMessageUpdate);
+    socket.on("message:deleted", handleMessageUpdate);
 
     return () => {
       socket.off("connect", join);
       socket.off("message:new", handleMessage);
+      socket.off("message:updated", handleMessageUpdate);
+      socket.off("message:deleted", handleMessageUpdate);
       socket.emit("leaveRoom", roomId);
     };
   }, [roomId]);

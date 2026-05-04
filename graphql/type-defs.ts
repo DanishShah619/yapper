@@ -124,6 +124,8 @@ export const typeDefs = `#graphql
     encryptedPayload: String!
     ephemeral: Boolean!
     expiresAt: DateTime
+    editedAt: DateTime
+    deletedAt: DateTime
     createdAt: DateTime!
   }
 
@@ -244,6 +246,8 @@ export const typeDefs = `#graphql
     inviteToRoom(roomId: ID!, username: String!): RoomMember!
     generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
     sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int, fileId: ID): Message!
+    updateMessage(id: ID!, encryptedPayload: String!): Message!
+    deleteMessage(id: ID!): Message!
     uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
     createGroup(name: String!, type: RoomType!, avatar: String): Group!
     addGroupMember(groupId: ID!, username: String!): GroupMember!

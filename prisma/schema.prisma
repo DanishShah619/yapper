@@ -117,6 +117,8 @@ model Message {
   encryptedPayload String
   ephemeral        Boolean   @default(false)
   expiresAt        DateTime?
+  editedAt         DateTime?
+  deletedAt        DateTime?
   createdAt        DateTime  @default(now())
 
   room   Room?  @relation(fields: [roomId], references: [id], onDelete: Cascade)

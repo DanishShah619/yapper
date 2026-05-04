@@ -610,7 +610,7 @@
       "label": "formatSize()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L25",
+      "source_location": "L30",
       "id": "chatbubble_formatsize",
       "community": 17,
       "norm_label": "formatsize()"
@@ -619,7 +619,7 @@
       "label": "AttachmentIcon()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L31",
+      "source_location": "L36",
       "id": "chatbubble_attachmenticon",
       "community": 17,
       "norm_label": "attachmenticon()"
@@ -648,142 +648,178 @@
       "source_file": "components\\ui\\ChatPanel.tsx",
       "source_location": "L1",
       "id": "components_ui_chatpanel_tsx",
-      "community": 1,
+      "community": 0,
       "norm_label": "chatpanel.tsx"
     },
     {
       "label": "isSupportedAttachment()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L67",
+      "source_location": "L120",
       "id": "chatpanel_issupportedattachment",
-      "community": 1,
+      "community": 0,
       "norm_label": "issupportedattachment()"
     },
     {
       "label": "base64ToArrayBuffer()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L74",
+      "source_location": "L127",
       "id": "chatpanel_base64toarraybuffer",
-      "community": 1,
+      "community": 0,
       "norm_label": "base64toarraybuffer()"
     },
     {
       "label": "saveDecryptedAttachment()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L85",
+      "source_location": "L138",
       "id": "chatpanel_savedecryptedattachment",
-      "community": 1,
+      "community": 0,
       "norm_label": "savedecryptedattachment()"
     },
     {
       "label": "groupMessagesByDate()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L116",
+      "source_location": "L169",
       "id": "chatpanel_groupmessagesbydate",
-      "community": 1,
+      "community": 0,
       "norm_label": "groupmessagesbydate()"
     },
     {
       "label": "isExpiredEphemeralMessage()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L147",
+      "source_location": "L200",
       "id": "chatpanel_isexpiredephemeralmessage",
-      "community": 1,
+      "community": 0,
       "norm_label": "isexpiredephemeralmessage()"
     },
     {
       "label": "decryptMessages()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L187",
+      "source_location": "L242",
       "id": "chatpanel_decryptmessages",
-      "community": 0,
+      "community": 1,
       "norm_label": "decryptmessages()"
     },
     {
       "label": "handleStart()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L332",
+      "source_location": "L391",
       "id": "chatpanel_handlestart",
-      "community": 1,
+      "community": 0,
       "norm_label": "handlestart()"
     },
     {
       "label": "handleStop()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L337",
+      "source_location": "L396",
       "id": "chatpanel_handlestop",
-      "community": 1,
+      "community": 0,
       "norm_label": "handlestop()"
     },
     {
       "label": "autoResize()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L356",
+      "source_location": "L415",
       "id": "chatpanel_autoresize",
-      "community": 1,
+      "community": 0,
       "norm_label": "autoresize()"
     },
     {
       "label": "handleTyping()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L377",
+      "source_location": "L436",
       "id": "chatpanel_handletyping",
-      "community": 1,
+      "community": 0,
       "norm_label": "handletyping()"
     },
     {
       "label": "handleFileSelect()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L382",
+      "source_location": "L441",
       "id": "chatpanel_handlefileselect",
-      "community": 1,
+      "community": 0,
       "norm_label": "handlefileselect()"
     },
     {
       "label": "handleDownloadAttachment()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L411",
+      "source_location": "L470",
       "id": "chatpanel_handledownloadattachment",
-      "community": 1,
+      "community": 0,
       "norm_label": "handledownloadattachment()"
+    },
+    {
+      "label": "startEditingMessage()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L495",
+      "id": "chatpanel_starteditingmessage",
+      "community": 0,
+      "norm_label": "starteditingmessage()"
+    },
+    {
+      "label": "cancelEditingMessage()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L502",
+      "id": "chatpanel_canceleditingmessage",
+      "community": 0,
+      "norm_label": "canceleditingmessage()"
+    },
+    {
+      "label": "handleUpdateMessage()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L507",
+      "id": "chatpanel_handleupdatemessage",
+      "community": 0,
+      "norm_label": "handleupdatemessage()"
+    },
+    {
+      "label": "handleDeleteMessage()",
+      "file_type": "code",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L541",
+      "id": "chatpanel_handledeletemessage",
+      "community": 0,
+      "norm_label": "handledeletemessage()"
     },
     {
       "label": "handleSend()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L436",
+      "source_location": "L569",
       "id": "chatpanel_handlesend",
-      "community": 1,
+      "community": 0,
       "norm_label": "handlesend()"
     },
     {
       "label": "formatTime()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L511",
+      "source_location": "L644",
       "id": "chatpanel_formattime",
-      "community": 1,
+      "community": 0,
       "norm_label": "formattime()"
     },
     {
       "label": "formatExpiresLabel()",
       "file_type": "code",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L515",
+      "source_location": "L648",
       "id": "chatpanel_formatexpireslabel",
-      "community": 1,
+      "community": 0,
       "norm_label": "formatexpireslabel()"
     },
     {
@@ -1125,7 +1161,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L1",
       "id": "graphql_resolvers_groups_ts",
-      "community": 7,
+      "community": 8,
       "norm_label": "groups.ts"
     },
     {
@@ -1134,7 +1170,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L9",
       "id": "groups_requireadmin",
-      "community": 7,
+      "community": 8,
       "norm_label": "requireadmin()"
     },
     {
@@ -1143,7 +1179,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L18",
       "id": "groups_requiremember",
-      "community": 7,
+      "community": 8,
       "norm_label": "requiremember()"
     },
     {
@@ -1152,7 +1188,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L27",
       "id": "groups_requireconnectionguard",
-      "community": 7,
+      "community": 8,
       "norm_label": "requireconnectionguard()"
     },
     {
@@ -1161,7 +1197,7 @@
       "source_file": "graphql\\resolvers\\groups.ts",
       "source_location": "L33",
       "id": "groups_getgroupwithmembersandcreator",
-      "community": 7,
+      "community": 8,
       "norm_label": "getgroupwithmembersandcreator()"
     },
     {
@@ -1224,7 +1260,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L1",
       "id": "graphql_resolvers_messaging_ts",
-      "community": 8,
+      "community": 7,
       "norm_label": "messaging.ts"
     },
     {
@@ -1233,7 +1269,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L12",
       "id": "messaging_tousershape",
-      "community": 8,
+      "community": 7,
       "norm_label": "tousershape()"
     },
     {
@@ -1242,7 +1278,7 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L16",
       "id": "messaging_toroomshape",
-      "community": 8,
+      "community": 7,
       "norm_label": "toroomshape()"
     },
     {
@@ -1251,26 +1287,44 @@
       "source_file": "graphql\\resolvers\\messaging.ts",
       "source_location": "L36",
       "id": "messaging_tomsgshape",
-      "community": 8,
+      "community": 7,
       "norm_label": "tomsgshape()"
     },
     {
       "label": "toFileShape()",
       "file_type": "code",
       "source_file": "graphql\\resolvers\\messaging.ts",
-      "source_location": "L59",
+      "source_location": "L61",
       "id": "messaging_tofileshape",
-      "community": 8,
+      "community": 7,
       "norm_label": "tofileshape()"
     },
     {
       "label": "emitRealtimeMessage()",
       "file_type": "code",
       "source_file": "graphql\\resolvers\\messaging.ts",
-      "source_location": "L73",
+      "source_location": "L75",
       "id": "messaging_emitrealtimemessage",
-      "community": 8,
+      "community": 7,
       "norm_label": "emitrealtimemessage()"
+    },
+    {
+      "label": "emitRealtimeMessageUpdate()",
+      "file_type": "code",
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L79",
+      "id": "messaging_emitrealtimemessageupdate",
+      "community": 7,
+      "norm_label": "emitrealtimemessageupdate()"
+    },
+    {
+      "label": "emitRealtimeMessageDelete()",
+      "file_type": "code",
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L83",
+      "id": "messaging_emitrealtimemessagedelete",
+      "community": 7,
+      "norm_label": "emitrealtimemessagedelete()"
     },
     {
       "label": "stubs.ts",
@@ -1377,7 +1431,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L1",
       "id": "lib_connections_ts",
-      "community": 7,
+      "community": 8,
       "norm_label": "connections.ts"
     },
     {
@@ -1386,7 +1440,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L9",
       "id": "connections_isconnected",
-      "community": 7,
+      "community": 8,
       "norm_label": "isconnected()"
     },
     {
@@ -1395,7 +1449,7 @@
       "source_file": "lib\\connections.ts",
       "source_location": "L29",
       "id": "connections_requireconnection",
-      "community": 7,
+      "community": 8,
       "norm_label": "requireconnection()"
     },
     {
@@ -1521,7 +1575,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L1",
       "id": "lib_e2ee_ts",
-      "community": 0,
+      "community": 1,
       "norm_label": "e2ee.ts"
     },
     {
@@ -1530,7 +1584,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L22",
       "id": "e2ee_generateroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "generateroomkey()"
     },
     {
@@ -1539,7 +1593,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L30",
       "id": "e2ee_exportroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "exportroomkey()"
     },
     {
@@ -1548,7 +1602,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L36",
       "id": "e2ee_importroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "importroomkey()"
     },
     {
@@ -1557,7 +1611,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L48",
       "id": "e2ee_encryptmessage",
-      "community": 3,
+      "community": 0,
       "norm_label": "encryptmessage()"
     },
     {
@@ -1566,7 +1620,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L66",
       "id": "e2ee_decryptmessage",
-      "community": 0,
+      "community": 1,
       "norm_label": "decryptmessage()"
     },
     {
@@ -1575,7 +1629,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L81",
       "id": "e2ee_encryptfile",
-      "community": 0,
+      "community": 1,
       "norm_label": "encryptfile()"
     },
     {
@@ -1584,7 +1638,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L94",
       "id": "e2ee_decryptfile",
-      "community": 1,
+      "community": 0,
       "norm_label": "decryptfile()"
     },
     {
@@ -1593,7 +1647,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L112",
       "id": "e2ee_generatekeypair",
-      "community": 0,
+      "community": 1,
       "norm_label": "generatekeypair()"
     },
     {
@@ -1602,7 +1656,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L133",
       "id": "e2ee_deriveroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "deriveroomkey()"
     },
     {
@@ -1611,7 +1665,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L156",
       "id": "e2ee_isclient",
-      "community": 0,
+      "community": 1,
       "norm_label": "isclient()"
     },
     {
@@ -1620,7 +1674,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L161",
       "id": "e2ee_storeroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "storeroomkey()"
     },
     {
@@ -1629,7 +1683,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L168",
       "id": "e2ee_loadroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "loadroomkey()"
     },
     {
@@ -1638,7 +1692,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L180",
       "id": "e2ee_e2eekeymissingerror",
-      "community": 0,
+      "community": 1,
       "norm_label": "e2eekeymissingerror"
     },
     {
@@ -1647,7 +1701,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L181",
       "id": "e2ee_e2eekeymissingerror_constructor",
-      "community": 0,
+      "community": 1,
       "norm_label": ".constructor()"
     },
     {
@@ -1656,7 +1710,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L190",
       "id": "e2ee_unwrapgroupkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "unwrapgroupkey()"
     },
     {
@@ -1665,7 +1719,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L215",
       "id": "e2ee_wrapgroupkeyfornewmember",
-      "community": 0,
+      "community": 1,
       "norm_label": "wrapgroupkeyfornewmember()"
     },
     {
@@ -1674,7 +1728,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L237",
       "id": "e2ee_getorrequestgroupkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "getorrequestgroupkey()"
     },
     {
@@ -1683,7 +1737,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L254",
       "id": "e2ee_generateandstoregroupkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "generateandstoregroupkey()"
     },
     {
@@ -1692,7 +1746,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L265",
       "id": "e2ee_getorcreatekeypair",
-      "community": 0,
+      "community": 1,
       "norm_label": "getorcreatekeypair()"
     },
     {
@@ -1701,7 +1755,7 @@
       "source_file": "lib\\e2ee.ts",
       "source_location": "L289",
       "id": "e2ee_getdmroomkey",
-      "community": 0,
+      "community": 1,
       "norm_label": "getdmroomkey()"
     },
     {
@@ -2034,7 +2088,7 @@
       "source_file": "lib\\socketIO.ts",
       "source_location": "L34",
       "id": "socketio_trygetio",
-      "community": 8,
+      "community": 7,
       "norm_label": "trygetio()"
     },
     {
@@ -2068,7 +2122,7 @@
       "label": "isExpiredEphemeral()",
       "file_type": "code",
       "source_file": "lib\\hooks\\useChatMessages.ts",
-      "source_location": "L55",
+      "source_location": "L59",
       "id": "usechatmessages_isexpiredephemeral",
       "community": 21,
       "norm_label": "isexpiredephemeral()"
@@ -2077,7 +2131,7 @@
       "label": "useChatMessages()",
       "file_type": "code",
       "source_file": "lib\\hooks\\useChatMessages.ts",
-      "source_location": "L59",
+      "source_location": "L63",
       "id": "usechatmessages_usechatmessages",
       "community": 21,
       "norm_label": "usechatmessages()"
@@ -2760,7 +2814,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L25",
+      "source_location": "L30",
       "weight": 1.0,
       "_src": "components_ui_chatbubble_tsx",
       "_tgt": "chatbubble_formatsize",
@@ -2772,7 +2826,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatBubble.tsx",
-      "source_location": "L31",
+      "source_location": "L36",
       "weight": 1.0,
       "_src": "components_ui_chatbubble_tsx",
       "_tgt": "chatbubble_attachmenticon",
@@ -2796,7 +2850,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L67",
+      "source_location": "L120",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_issupportedattachment",
@@ -2808,7 +2862,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L74",
+      "source_location": "L127",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_base64toarraybuffer",
@@ -2820,7 +2874,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L85",
+      "source_location": "L138",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_savedecryptedattachment",
@@ -2832,7 +2886,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L116",
+      "source_location": "L169",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_groupmessagesbydate",
@@ -2844,7 +2898,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L147",
+      "source_location": "L200",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_isexpiredephemeralmessage",
@@ -2856,7 +2910,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L187",
+      "source_location": "L242",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_decryptmessages",
@@ -2868,7 +2922,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L332",
+      "source_location": "L391",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handlestart",
@@ -2880,7 +2934,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L337",
+      "source_location": "L396",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handlestop",
@@ -2892,7 +2946,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L356",
+      "source_location": "L415",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_autoresize",
@@ -2904,7 +2958,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L377",
+      "source_location": "L436",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handletyping",
@@ -2916,7 +2970,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L382",
+      "source_location": "L441",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handlefileselect",
@@ -2928,7 +2982,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L411",
+      "source_location": "L470",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handledownloadattachment",
@@ -2940,7 +2994,55 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L436",
+      "source_location": "L495",
+      "weight": 1.0,
+      "_src": "components_ui_chatpanel_tsx",
+      "_tgt": "chatpanel_starteditingmessage",
+      "source": "components_ui_chatpanel_tsx",
+      "target": "chatpanel_starteditingmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L502",
+      "weight": 1.0,
+      "_src": "components_ui_chatpanel_tsx",
+      "_tgt": "chatpanel_canceleditingmessage",
+      "source": "components_ui_chatpanel_tsx",
+      "target": "chatpanel_canceleditingmessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L507",
+      "weight": 1.0,
+      "_src": "components_ui_chatpanel_tsx",
+      "_tgt": "chatpanel_handleupdatemessage",
+      "source": "components_ui_chatpanel_tsx",
+      "target": "chatpanel_handleupdatemessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L541",
+      "weight": 1.0,
+      "_src": "components_ui_chatpanel_tsx",
+      "_tgt": "chatpanel_handledeletemessage",
+      "source": "components_ui_chatpanel_tsx",
+      "target": "chatpanel_handledeletemessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L569",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_handlesend",
@@ -2952,7 +3054,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L511",
+      "source_location": "L644",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_formattime",
@@ -2964,7 +3066,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L515",
+      "source_location": "L648",
       "weight": 1.0,
       "_src": "components_ui_chatpanel_tsx",
       "_tgt": "chatpanel_formatexpireslabel",
@@ -2976,7 +3078,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L390",
+      "source_location": "L449",
       "weight": 1.0,
       "_src": "chatpanel_handlefileselect",
       "_tgt": "chatpanel_issupportedattachment",
@@ -2988,7 +3090,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L427",
+      "source_location": "L486",
       "weight": 1.0,
       "_src": "chatpanel_handledownloadattachment",
       "_tgt": "chatpanel_base64toarraybuffer",
@@ -3000,7 +3102,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "components\\ui\\ChatPanel.tsx",
-      "source_location": "L429",
+      "source_location": "L488",
       "weight": 1.0,
       "_src": "chatpanel_handledownloadattachment",
       "_tgt": "chatpanel_savedecryptedattachment",
@@ -3067,6 +3169,54 @@
       "_tgt": "e2ee_decryptfile",
       "source": "chatpanel_handledownloadattachment",
       "target": "e2ee_decryptfile"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L534",
+      "weight": 1.0,
+      "_src": "chatpanel_handleupdatemessage",
+      "_tgt": "chatpanel_canceleditingmessage",
+      "source": "chatpanel_canceleditingmessage",
+      "target": "chatpanel_handleupdatemessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L562",
+      "weight": 1.0,
+      "_src": "chatpanel_handledeletemessage",
+      "_tgt": "chatpanel_canceleditingmessage",
+      "source": "chatpanel_canceleditingmessage",
+      "target": "chatpanel_handledeletemessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L511",
+      "weight": 1.0,
+      "_src": "chatpanel_handleupdatemessage",
+      "_tgt": "e2ee_loadroomkey",
+      "source": "chatpanel_handleupdatemessage",
+      "target": "e2ee_loadroomkey"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "components\\ui\\ChatPanel.tsx",
+      "source_location": "L514",
+      "weight": 1.0,
+      "_src": "chatpanel_handleupdatemessage",
+      "_tgt": "e2ee_encryptmessage",
+      "source": "chatpanel_handleupdatemessage",
+      "target": "e2ee_encryptmessage"
     },
     {
       "relation": "contains",
@@ -3384,7 +3534,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "graphql\\resolvers\\messaging.ts",
-      "source_location": "L59",
+      "source_location": "L61",
       "weight": 1.0,
       "_src": "graphql_resolvers_messaging_ts",
       "_tgt": "messaging_tofileshape",
@@ -3396,12 +3546,36 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "graphql\\resolvers\\messaging.ts",
-      "source_location": "L73",
+      "source_location": "L75",
       "weight": 1.0,
       "_src": "graphql_resolvers_messaging_ts",
       "_tgt": "messaging_emitrealtimemessage",
       "source": "graphql_resolvers_messaging_ts",
       "target": "messaging_emitrealtimemessage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_src": "graphql_resolvers_messaging_ts",
+      "_tgt": "messaging_emitrealtimemessageupdate",
+      "source": "graphql_resolvers_messaging_ts",
+      "target": "messaging_emitrealtimemessageupdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L83",
+      "weight": 1.0,
+      "_src": "graphql_resolvers_messaging_ts",
+      "_tgt": "messaging_emitrealtimemessagedelete",
+      "source": "graphql_resolvers_messaging_ts",
+      "target": "messaging_emitrealtimemessagedelete",
       "confidence_score": 1.0
     },
     {
@@ -3420,7 +3594,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "graphql\\resolvers\\messaging.ts",
-      "source_location": "L66",
+      "source_location": "L68",
       "weight": 1.0,
       "_src": "messaging_tofileshape",
       "_tgt": "messaging_tousershape",
@@ -3450,6 +3624,30 @@
       "_src": "messaging_emitrealtimemessage",
       "_tgt": "socketio_trygetio",
       "source": "messaging_emitrealtimemessage",
+      "target": "socketio_trygetio"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L80",
+      "weight": 1.0,
+      "_src": "messaging_emitrealtimemessageupdate",
+      "_tgt": "socketio_trygetio",
+      "source": "messaging_emitrealtimemessageupdate",
+      "target": "socketio_trygetio"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphql\\resolvers\\messaging.ts",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_src": "messaging_emitrealtimemessagedelete",
+      "_tgt": "socketio_trygetio",
+      "source": "messaging_emitrealtimemessagedelete",
       "target": "socketio_trygetio"
     },
     {
@@ -4716,7 +4914,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\hooks\\useChatMessages.ts",
-      "source_location": "L55",
+      "source_location": "L59",
       "weight": 1.0,
       "_src": "lib_hooks_usechatmessages_ts",
       "_tgt": "usechatmessages_isexpiredephemeral",
@@ -4728,7 +4926,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "lib\\hooks\\useChatMessages.ts",
-      "source_location": "L59",
+      "source_location": "L63",
       "weight": 1.0,
       "_src": "lib_hooks_usechatmessages_ts",
       "_tgt": "usechatmessages_usechatmessages",
