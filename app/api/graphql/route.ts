@@ -1,5 +1,7 @@
 import { withSecurityHeaders } from '@/lib/security-headers';
 import { ApolloServer } from '@apollo/server';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import { startServerAndCreateNextHandler } from '@as-integrations/next';
 import { NextRequest } from 'next/server';
 import { typeDefs } from '@/graphql/type-defs';
@@ -10,11 +12,16 @@ import { extractToken, validateSession } from '@/lib/auth';
 import { GraphQLContext, pubsub } from '@/graphql/context';
 import { cookies } from 'next/headers';
 import { validateCsrfToken } from '@/lib/csrf';
+import { env } from '@/lib/env';
 
 const server = new ApolloServer<GraphQLContext>({
   typeDefs,
   resolvers,
-  introspection: true, // Enable GraphQL playground
+  introspection: env.NODE_ENV !== 'production',
+  plugins:
+    env.NODE_ENV !== 'production'
+      ? [ApolloServerPluginLandingPageLocalDefault()]
+      : [ApolloServerPluginLandingPageDisabled()],
 });
 
 const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(server, {

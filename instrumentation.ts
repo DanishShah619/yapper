@@ -5,6 +5,7 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { startStaleShardDetector } = await import('@/workers/staleShardDetector');
+    // TODO: move to dedicated worker process before scaling beyond 2 replicas.
     startStaleShardDetector();
   }
 }

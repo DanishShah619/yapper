@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import Redis from 'ioredis';
+import redis from '@/lib/redis';
 import { cookies } from 'next/headers';
 import { validateCsrfToken } from '@/lib/csrf';
 import { withSecurityHeaders } from '@/lib/security-headers';
-
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 export const POST = withSecurityHeaders(async (
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) => {
   try {
-    if (!validateCsrfToken(request)) {
+    if (!(await validateCsrfToken(request))) {
       return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
     }
 
@@ -75,8 +73,7 @@ export const POST = withSecurityHeaders(async (
     }
 
     return NextResponse.json({ error: 'Invalid invite type' }, { status: 400 });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Invite Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

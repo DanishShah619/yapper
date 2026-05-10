@@ -7,10 +7,10 @@
 // Never update deliveryStatus directly in resolvers — always call these functions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
-import { getIO } from '@/lib/socketIO';
-import { RedisKeys, STALE_SHARD_THRESHOLD_MINUTES, MAX_REDELIVERY_ATTEMPTS } from '@/lib/redisKeys';
+import { prisma } from './prisma';
+import { redis } from './redis';
+import { getIO } from './socketIO';
+import { RedisKeys, STALE_SHARD_THRESHOLD_MINUTES, MAX_REDELIVERY_ATTEMPTS } from './redisKeys';
 import { KeyDeliveryStatus } from '@prisma/client';
 
 // ── TYPE DEFINITIONS ──────────────────────────────────────────────────────────

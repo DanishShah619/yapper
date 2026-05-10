@@ -1,10 +1,10 @@
 import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { getSession } from './session';
+import { env } from './env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'nexchat-dev-secret-change-in-production-2025';
-const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] =
-  (process.env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn']) ?? '7d';
+const JWT_SECRET = env.JWT_SECRET || 'nexchat-dev-secret-change-in-production-2025';
+const JWT_EXPIRES_IN = env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'];
 
 export interface JwtPayload {
   userId: string;

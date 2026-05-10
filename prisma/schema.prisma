@@ -136,7 +136,9 @@ model File {
   id                String   @id @default(uuid())
   roomId            String
   uploaderId        String
+  // TODO: migrate to object storage (S3/R2); use storageKey field. See implementation plan.
   encryptedBlob     Bytes
+  storageKey        String?
   encryptedMetadata String
   createdAt         DateTime @default(now())
 

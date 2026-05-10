@@ -1,19 +1,28 @@
-import 'dotenv/config';
 // Use the concrete Prisma client type from the singleton module
-import prismaClient from '@/lib/prisma';
-import { Redis } from 'ioredis';
+import prismaClient from '../lib/prisma';
+import { Redis, type RedisOptions } from 'ioredis';
+import { env } from '../lib/env';
 
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = env.REDIS_URL;
 
-const redisConfig = {
+const redisConfig: RedisOptions = {
+  lazyConnect: true,
   retryStrategy: (times: number) => Math.min(times * 50, 2000),
 };
 
+function createPubSubRedisClient(role: 'publisher' | 'subscriber'): Redis {
+  const client = new Redis(REDIS_URL, redisConfig);
+  client.on('error', (error) => {
+    console.warn(`[RedisPubSub] ${role} connection error:`, error.message);
+  });
+  return client;
+}
+
 export const pubsub = new RedisPubSub({
-  publisher: new Redis(REDIS_URL, redisConfig),
-  subscriber: new Redis(REDIS_URL, redisConfig),
+  publisher: createPubSubRedisClient('publisher'),
+  subscriber: createPubSubRedisClient('subscriber'),
 });
 
 export interface GraphQLContext {

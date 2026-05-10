@@ -2,32 +2,78 @@
 // Custom Express + Socket.IO server for NexChat
 // Integrates with Next.js App Router, Redis adapter, JWT auth
 
+import { env, verifyRedisConnection } from './lib/env';
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import next from 'next';
-import dotenv from 'dotenv';
 import { setIO } from './lib/socketIO';
 import { markShardAcknowledged, markShardDecrypted } from './lib/keyDelivery';
 import { prisma } from './lib/prisma';
+import redis from './lib/redis';
 import { pubsub } from './graphql/context';
 import { verifyToken, validateSession } from './lib/auth';
 
-dotenv.config();
-
-const dev = process.env.NODE_ENV !== 'production';
+const dev = env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
-
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 type SocketUser = {
   userId?: string;
   username?: string;
   exp?: number;
 };
+
+type DependencyStatus = 'ok' | 'error';
+
+async function withTimeout<T>(label: string, operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} check timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function checkReadiness(): Promise<{
+  db: DependencyStatus;
+  redis: DependencyStatus;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let db: DependencyStatus = 'ok';
+  let redisStatus: DependencyStatus = 'ok';
+
+  try {
+    await withTimeout('database', prisma.$queryRaw`SELECT 1`, 2000);
+  } catch (error) {
+    db = 'error';
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(`db: ${message}`);
+    console.warn('[readyz] database check failed:', message);
+  }
+
+  try {
+    await withTimeout('redis', redis.ping(), 2000);
+  } catch (error) {
+    redisStatus = 'error';
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(`redis: ${message}`);
+    console.warn('[readyz] Redis check failed:', message);
+  }
+
+  return { db, redis: redisStatus, errors };
+}
 
 function getCookieValue(cookieHeader: string | undefined, name: string): string | null {
   if (!cookieHeader) return null;
@@ -43,19 +89,45 @@ function getCookieValue(cookieHeader: string | undefined, name: string): string 
 }
 
 async function main() {
+  await verifyRedisConnection();
   await app.prepare();
   const server = express();
   const httpServer = createServer(server);
 
+  server.get('/healthz', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
+  server.get('/readyz', async (_req, res) => {
+    const readiness = await checkReadiness();
+    const isReady = readiness.db === 'ok' && readiness.redis === 'ok';
+
+    if (isReady) {
+      res.status(200).json({ status: 'ready', db: 'ok', redis: 'ok' });
+      return;
+    }
+
+    res.status(503).json({
+      status: 'degraded',
+      db: readiness.db,
+      redis: readiness.redis,
+      error: readiness.errors.join('; '),
+    });
+  });
+
   // Redis clients for Socket.IO adapter
-  const pubClient = createClient({ url: REDIS_URL });
+  const pubClient = createClient({ url: env.REDIS_URL });
   const subClient = pubClient.duplicate();
   await pubClient.connect();
   await subClient.connect();
 
   // Socket.IO setup
   const io = new SocketIOServer(httpServer, {
-    cors: { origin: '*' },
+    cors: {
+      origin: env.NODE_ENV === 'production' ? env.APP_ORIGIN : true,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
     path: '/socket.io',
   });
   io.adapter(createAdapter(pubClient, subClient));
@@ -316,7 +388,7 @@ async function main() {
   // Next.js request handler
   server.all(/.*/, (req, res) => handle(req, res));
 
-  const port = process.env.PORT || 3000;
+  const port = env.PORT;
   httpServer.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`);
   });
