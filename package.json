@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "next build && npm run build:server",
+    "build": "prisma generate && next build && npm run build:server",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/server.js",
     "lint": "eslint"
