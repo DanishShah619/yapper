@@ -167,7 +167,7 @@ export const groupResolvers = {
       // must perform the rotation and submit the new shards via submitRotatedGroupKeys.
       ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
         groupId: args.groupId,
-        remainingMemberIds: remaining.map((m) => m.userId),
+        remainingMemberIds: remaining.map((m: GroupMemberRow) => m.userId),
         rotationRequired: true,
       });
 
@@ -326,7 +326,7 @@ export const groupResolvers = {
       // must perform the rotation and submit the new shards via submitRotatedGroupKeys.
       ctx.pubsub.publish(`groupKeyRotationRequired:${args.groupId}`, {
         groupId: args.groupId,
-        remainingMemberIds: remainingAfterLeave.map((m) => m.userId),
+        remainingMemberIds: remainingAfterLeave.map((m: GroupMemberRow) => m.userId),
         rotationRequired: true,
       });
 
