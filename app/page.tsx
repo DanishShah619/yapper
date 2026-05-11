@@ -128,7 +128,7 @@ export default function DashboardPage() {
               Welcome, <span className="dashboard-highlight">{user?.username}</span>
             </h1>
             <p className="dashboard-welcome-text">
-              Your secure messaging platform is ready. Features are being built across multiple phases.
+              Your secure messaging platform is ready. Get yapping...
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -138,7 +138,7 @@ export default function DashboardPage() {
                 badge="LIVE"
                 dotColor="#818cf8"
                 icon={<MessageSquare size={22} />}
-                description="E2E encrypted DMs — Phase 3 is here. Click to open."
+                description="E2E encrypted DMs so no snoopin' around"
               />
               <GlowingCard 
                 href="/connections"
@@ -154,7 +154,7 @@ export default function DashboardPage() {
                 badge="LIVE"
                 dotColor="#34d399"
                 icon={<Home size={22} />}
-                description="Encrypted group chats — Phase 5 is here. Click to open."
+                description="Group Chatting ? We got you fam."
               />
               <GlowingCard 
                 href="/video"
@@ -162,7 +162,7 @@ export default function DashboardPage() {
                 badge="LIVE"
                 dotColor="#c084fc"
                 icon={<Video size={22} />}
-                description="LiveKit SFU calls — Phase 4 is here. Click to open."
+                description="Secure Video calling for upto 4 coz too many coooks spoil the broth"
               />
             </div>
           </div>

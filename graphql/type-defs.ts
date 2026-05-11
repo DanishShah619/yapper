@@ -232,6 +232,7 @@ export const typeDefs = `#graphql
     videoRoom(id: ID!): VideoRoom
     liveKitToken(roomId: ID!): String!
     getLiveKitToken(roomId: ID!): String!
+    resolveVideoInvite(token: String!): ID!
   }
 
   type Mutation {
@@ -267,6 +268,7 @@ export const typeDefs = `#graphql
     approveParticipant(roomId: ID!, participantId: ID!): Boolean!
     rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
     lockVideoRoom(roomId: ID!): VideoRoom!
+    generateVideoInviteLink(videoRoomId: ID!, ttl: Int): String!
     createPost(content: String!): Post!
     uploadKeyShards(roomId: ID!, shards: [KeyShardInput!]!): Boolean!
     rotateKey(roomId: ID!, newShards: [KeyShardInput!]!, removedMemberId: ID): Boolean!

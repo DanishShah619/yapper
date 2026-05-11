@@ -254,6 +254,7 @@ type Query {
   videoRoom(id: ID!): VideoRoom
   liveKitToken(roomId: ID!): String!
   getLiveKitToken(roomId: ID!): String!
+  resolveVideoInvite(token: String!): ID!
 
   # V2 Stubs
   peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
@@ -309,6 +310,7 @@ type Mutation {
   approveParticipant(roomId: ID!, participantId: ID!): Boolean!
   rejectParticipant(roomId: ID!, participantId: ID!): Boolean!
   lockVideoRoom(roomId: ID!): VideoRoom!
+  generateVideoInviteLink(videoRoomId: ID!, ttl: Int): String!
 
   # Key Escrow
   uploadKeyShards(roomId: ID!, shards: [KeyShardInput!]!): Boolean!

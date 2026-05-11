@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { LiveKitRoom, VideoConference, useLocalParticipant } from '@livekit/components-react';
-import { Copy, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff } from 'lucide-react';
+import { GridLayout, LiveKitRoom, ParticipantTile, RoomAudioRenderer, useLocalParticipant, useTracks } from '@livekit/components-react';
+import { RoomOptions, Track } from 'livekit-client';
+import { Copy, Link, Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, Users, Unlock, Lock, PhoneOff } from 'lucide-react';
 import { WaitingRoomPanel } from '@/components/ui/WaitingRoomPanel';
+import { InCallInvitePanel } from '@/components/ui/InCallInvitePanel';
 import { useToast } from '@/components/ui/Toast';
 
 const GET_LIVEKIT_TOKEN = gql`
@@ -29,11 +31,40 @@ const GET_VIDEO_ROOM_STATUS = gql`
 
 const ME_QUERY = gql`query MeVideoRoom { me { id } }`;
 
+const roomOptions: RoomOptions = {
+  adaptiveStream: true,
+  dynacast: true,
+  publishDefaults: {
+    simulcast: true,
+  },
+};
+
+function VideoGrid() {
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false }
+  );
+
+  return (
+    <GridLayout
+      tracks={tracks}
+      style={{ height: "calc(100vh - 80px)", width: "100%" }}
+    >
+      <ParticipantTile />
+    </GridLayout>
+  );
+}
+
 // Internal controls component to access LiveKit context
 type RoomControlsProps = {
   isAdmin: boolean;
+  invitePanelOpen: boolean;
   locked: boolean;
   waitingCount: number;
+  onToggleInvitePanel: () => void;
   onToggleWaitingPanel: () => void;
   onToggleLock: () => void;
   onDisconnect: () => void;
@@ -41,8 +72,10 @@ type RoomControlsProps = {
 
 function RoomControls({ 
   isAdmin, 
+  invitePanelOpen,
   locked, 
   waitingCount, 
+  onToggleInvitePanel,
   onToggleWaitingPanel, 
   onToggleLock, 
   onDisconnect 
@@ -74,7 +107,7 @@ function RoomControls({
   };
 
   return (
-    <div className="bg-[#111111]/90 backdrop-blur-sm border-t border-white/10 px-6 py-4 flex items-center justify-center gap-4 shrink-0 absolute bottom-0 left-0 right-0 z-20">
+    <div className="shrink-0 bg-[#111111]/90 backdrop-blur-sm border-t border-white/10 px-6 py-4 flex items-center justify-center gap-4">
       <button 
         onClick={toggleMic}
         className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${micOn ? 'bg-[#1F2937] hover:bg-[#374151] text-white' : 'bg-[#DC2626] hover:bg-[#B91C1C] text-white'}`}
@@ -98,6 +131,14 @@ function RoomControls({
 
       {isAdmin && (
         <>
+          <button
+            onClick={onToggleInvitePanel}
+            title="Send invite link"
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${invitePanelOpen ? 'bg-[#1ABC9C] text-white' : 'bg-[#1F2937] hover:bg-[#374151] text-white'}`}
+          >
+            <Link size={18} />
+          </button>
+
           <button 
             onClick={onToggleWaitingPanel}
             className="w-11 h-11 rounded-full flex items-center justify-center bg-[#1F2937] hover:bg-[#374151] text-white transition-colors relative"
@@ -136,6 +177,7 @@ export default function VideoRoomPage() {
   const { showToast } = useToast();
 
   const [waitingPanelOpen, setWaitingPanelOpen] = useState(false);
+  const [invitePanelOpen, setInvitePanelOpen] = useState(false);
   const waitingCount = 0; // This would be synced via socket in a real app or within the panel
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
@@ -164,7 +206,7 @@ export default function VideoRoomPage() {
   if (tokenLoading) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-white">Connecting...</div>;
   if (tokenError) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-[#DC2626]">{tokenError.message}</div>;
 
-  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7880";
+  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
   const token = tokenData?.getLiveKitToken;
   const roomInfo = statusData?.videoRoom;
   const joinUrl = typeof window === 'undefined' ? `/video/${id}/waiting` : `${window.location.origin}/video/${id}/waiting`;
@@ -239,18 +281,31 @@ export default function VideoRoomPage() {
       <div className="flex-1 overflow-hidden">
         {token ? (
           <LiveKitRoom
+            connect={true}
             video={true}
             audio={true}
             token={token}
             serverUrl={serverUrl}
+            options={roomOptions}
             onDisconnected={handleDisconnect}
-            className="h-full"
+            className="flex h-full flex-col"
           >
-            <VideoConference />
+            <div className="flex-1 overflow-hidden relative">
+              <VideoGrid />
+            </div>
+            <RoomAudioRenderer />
+            {invitePanelOpen && isAdmin && (
+              <InCallInvitePanel
+                videoRoomId={id}
+                onClose={() => setInvitePanelOpen(false)}
+              />
+            )}
             <RoomControls 
               isAdmin={isAdmin}
+              invitePanelOpen={invitePanelOpen}
               locked={isLocked}
               waitingCount={waitingCount}
+              onToggleInvitePanel={() => setInvitePanelOpen((open) => !open)}
               onToggleWaitingPanel={() => setWaitingPanelOpen(!waitingPanelOpen)}
               onToggleLock={() => lockVideoRoom({ variables: { roomId: id } })}
               onDisconnect={handleDisconnect}

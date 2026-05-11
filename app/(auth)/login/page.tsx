@@ -3,12 +3,14 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { EyeOff, Eye } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +78,7 @@ export default function LoginPage() {
         </label>
         <input
           id="password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           required
           placeholder="Enter your password"
           className="w-full px-4 py-3 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-neutral-900 dark:text-neutral-100 text-sm placeholder-neutral-400 dark:placeholder-neutral-600 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
@@ -84,6 +86,13 @@ export default function LoginPage() {
           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
           autoComplete="current-password"
         />
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
 
       <button

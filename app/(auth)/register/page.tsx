@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { EyeOff, Eye } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -121,7 +124,7 @@ export default function RegisterPage() {
         </label>
         <input
           id="password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           required
           placeholder="Min. 8 characters"
           className={inputClass}
@@ -129,6 +132,13 @@ export default function RegisterPage() {
           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
           autoComplete="new-password"
         />
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+        >
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
 
       <div className="mb-6">
@@ -137,7 +147,7 @@ export default function RegisterPage() {
         </label>
         <input
           id="confirm-password"
-          type="password"
+          type={showConfirmPassword ? 'text' : 'password'}
           required
           placeholder="Repeat password"
           className={inputClass}
@@ -145,6 +155,13 @@ export default function RegisterPage() {
           onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
           autoComplete="new-password"
         />
+        <button
+          type="button"
+          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+        >
+          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
 
       <button

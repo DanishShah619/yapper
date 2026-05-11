@@ -44,6 +44,19 @@ export const videoResolvers = {
 
       return await generateLiveKitToken(ctx.userId, args.roomId);
     },
+
+    resolveVideoInvite: async (
+      _parent: unknown,
+      args: { token: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const videoRoomId = await ctx.redis.get(`videoinvite:${args.token}`);
+      if (!videoRoomId) throw new Error('Invite link is invalid or has expired');
+
+      return videoRoomId;
+    },
   },
   Mutation: {
     createVideoRoom: async (
@@ -190,6 +203,28 @@ export const videoResolvers = {
       ctx.pubsub.publish(`roomLocked:${args.roomId}`, true);
 
       return updatedRoom;
+    },
+
+    generateVideoInviteLink: async (
+      _parent: unknown,
+      args: { videoRoomId: string; ttl?: number },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const room = await ctx.prisma.videoRoom.findUnique({
+        where: { id: args.videoRoomId },
+      });
+      if (!room) throw new Error('Video room not found');
+      if (room.createdBy !== ctx.userId) throw new Error('Only the host can generate invite links');
+
+      const token = randomUUID();
+      const ttl = args.ttl ?? 3600;
+
+      await ctx.redis.set(`videoinvite:${token}`, args.videoRoomId, 'EX', ttl);
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ORIGIN ?? 'http://localhost:3000';
+      return `${baseUrl}/video/join/${token}`;
     },
   },
 
