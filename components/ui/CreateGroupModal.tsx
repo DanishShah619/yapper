@@ -11,6 +11,7 @@ export interface CreateGroupModalProps {
 // Since CreateGroupModal uses useMutation, it needs to import it
 import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
+import { generateAndStoreGroupKey } from '@/lib/e2ee';
 
 const CREATE_GROUP = gql`
   mutation CreateGroup($name: String!, $type: RoomType!) {
@@ -32,7 +33,8 @@ export function CreateGroupModal({ open, onClose, onCreated }: CreateGroupModalP
   const [type, setType] = useState<RoomType>('PERSISTENT');
 
   const [createGroup, { loading }] = useMutation<CreateGroupData>(CREATE_GROUP, {
-    onCompleted: (data) => {
+    onCompleted: async (data) => {
+      await generateAndStoreGroupKey(data.createGroup.id);
       onCreated(data.createGroup.id);
       onClose();
     },

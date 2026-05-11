@@ -8,6 +8,7 @@ import { X, Lock, Unlock, Link as LinkIcon, UserPlus, LogOut, Trash2 } from 'luc
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
+import { getAccountKeyPair, getGroupRoomKey, wrapGroupKeyForNewMember } from '@/lib/e2ee';
 
 const LOCK_GROUP = gql`mutation LockGroup($groupId: ID!) { lockGroup(groupId: $groupId) { id locked } }`;
 const UNLOCK_GROUP = gql`mutation UnlockGroup($groupId: ID!) { unlockGroup(groupId: $groupId) { id locked } }`;
@@ -23,9 +24,15 @@ const ADD_GROUP_MEMBER = gql`
   mutation AddGroupMember($groupId: ID!, $username: String!) {
     addGroupMember(groupId: $groupId, username: $username) {
       id
-      user { id username avatarUrl }
+      user { id username avatarUrl publicKey }
       role
+      encryptedKey
     }
+  }
+`;
+const SUBMIT_GROUP_KEYS = gql`
+  mutation SubmitGroupKeys($groupId: ID!, $wrappedKeys: [WrappedKeyInput!]!) {
+    submitRotatedGroupKeys(groupId: $groupId, wrappedKeys: $wrappedKeys)
   }
 `;
 
@@ -42,11 +49,18 @@ type ConnectionNode = {
 };
 
 type GroupMemberNode = {
+  role?: string;
+  encryptedKey?: string | null;
   user: {
     id: string;
     username: string;
     avatarUrl: string | null;
+    publicKey?: string | null;
   };
+};
+
+type AddGroupMemberData = {
+  addGroupMember: GroupMemberNode;
 };
 
 export interface GroupSettingsPanelProps {
@@ -61,12 +75,13 @@ export interface GroupSettingsPanelProps {
   };
   isAdmin: boolean;
   currentUserId?: string;
+  currentUserPublicKey?: string | null;
   onClose: () => void;
   open: boolean;
   onRefresh: () => void;
 }
 
-export function GroupSettingsPanel({ group, isAdmin, currentUserId, onClose, open, onRefresh }: GroupSettingsPanelProps) {
+export function GroupSettingsPanel({ group, isAdmin, currentUserId, currentUserPublicKey, onClose, open, onRefresh }: GroupSettingsPanelProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [addUsername, setAddUsername] = useState('');
@@ -94,9 +109,47 @@ export function GroupSettingsPanel({ group, isAdmin, currentUserId, onClose, ope
     onCompleted: () => router.push('/groups'),
     onError: (e) => showToast(e.message, 'error')
   });
-  const [addGroupMember, { loading: addingMember }] = useMutation(ADD_GROUP_MEMBER, {
-    onCompleted: () => {
+  const [submitGroupKeys] = useMutation(SUBMIT_GROUP_KEYS);
+  const [addGroupMember, { loading: addingMember }] = useMutation<AddGroupMemberData>(ADD_GROUP_MEMBER, {
+    onCompleted: async (data) => {
       setAddUsername('');
+      const newMember = data.addGroupMember;
+
+      if (currentUserId && newMember.user.publicKey) {
+        try {
+          const { roomKey, wrappedKeys } = await getGroupRoomKey(
+            group.id,
+            group.members ?? [],
+            currentUserId,
+            currentUserPublicKey,
+            { allowInitialize: true }
+          );
+          const { privateKey } = await getAccountKeyPair(currentUserId, currentUserPublicKey);
+          const newMemberWrappedKey = await wrapGroupKeyForNewMember(
+            roomKey,
+            newMember.user.publicKey,
+            privateKey
+          );
+
+          await submitGroupKeys({
+            variables: {
+              groupId: group.id,
+              wrappedKeys: [
+                ...wrappedKeys,
+                { memberId: newMember.user.id, encryptedKey: newMemberWrappedKey },
+              ],
+            },
+          });
+        } catch (error: unknown) {
+          showToast(
+            error instanceof Error
+              ? error.message
+              : 'Member added, but the group key could not be delivered.',
+            'error'
+          );
+        }
+      }
+
       onRefresh();
       showToast('Member added', 'success');
     },

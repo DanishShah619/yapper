@@ -282,6 +282,94 @@ export async function generateAndStoreGroupKey(groupId: string): Promise<CryptoK
   return key;
 }
 
+export type GroupKeyMember = {
+  role?: string;
+  encryptedKey?: string | null;
+  user: {
+    id: string;
+    publicKey?: string | null;
+  };
+};
+
+export type WrappedGroupKey = {
+  memberId: string;
+  encryptedKey: string;
+};
+
+async function wrapGroupKeyForMembers(
+  groupKey: CryptoKey,
+  members: GroupKeyMember[],
+  myPrivateKey: string
+): Promise<WrappedGroupKey[]> {
+  const wrappedKeys = await Promise.all(
+    members.map(async (member) => {
+      if (!member.user.publicKey) return null;
+
+      return {
+        memberId: member.user.id,
+        encryptedKey: await wrapGroupKeyForNewMember(groupKey, member.user.publicKey, myPrivateKey),
+      };
+    })
+  );
+
+  return wrappedKeys.filter((wrapped): wrapped is WrappedGroupKey => wrapped !== null);
+}
+
+/**
+ * Resolve the AES-GCM key used by a group.
+ *
+ * Existing wrapped keys do not carry a sender id in the current schema, so when
+ * a local cache miss occurs we try known member public keys until one unwraps.
+ * Admins can initialize a missing group key and receive the wrapped payloads the
+ * caller should persist through submitRotatedGroupKeys.
+ */
+export async function getGroupRoomKey(
+  groupId: string,
+  members: GroupKeyMember[],
+  currentUserId: string,
+  serverPublicKey?: string | null,
+  options: { allowInitialize?: boolean } = {}
+): Promise<{ roomKey: CryptoKey; wrappedKeys: WrappedGroupKey[] }> {
+  const cached = await loadRoomKey(groupId);
+  if (cached) return { roomKey: cached, wrappedKeys: [] };
+
+  const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
+  const currentMember = members.find((member) => member.user.id === currentUserId);
+
+  if (currentMember?.encryptedKey) {
+    const candidatePublicKeys = [
+      ...members.filter((member) => member.role === 'ADMIN').map((member) => member.user.publicKey),
+      currentMember.user.publicKey,
+      ...members.map((member) => member.user.publicKey),
+    ].filter((publicKey): publicKey is string => !!publicKey);
+
+    for (const senderPublicKey of Array.from(new Set(candidatePublicKeys))) {
+      try {
+        const unwrapped = await unwrapGroupKey(currentMember.encryptedKey, senderPublicKey, localPair.privateKey);
+        await storeRoomKey(groupId, unwrapped);
+        return { roomKey: unwrapped, wrappedKeys: [] };
+      } catch {
+        // The schema does not identify the wrapping sender; try the next key.
+      }
+    }
+
+    throw new E2EEKeyMissingError(
+      'Your delivered group key could not be decrypted. Ask a group admin to redeliver the room key.'
+    );
+  }
+
+  if (!options.allowInitialize || currentMember?.role !== 'ADMIN') {
+    throw new E2EEKeyMissingError(
+      'Your encryption key for this group has not been delivered yet. ' +
+      'Wait or ask a group admin to redeliver the room key.'
+    );
+  }
+
+  const roomKey = await generateAndStoreGroupKey(groupId);
+  const wrappedKeys = await wrapGroupKeyForMembers(roomKey, members, localPair.privateKey);
+  return { roomKey, wrappedKeys };
+}
+
 /**
  * Get or create the user's ECDH key pair from localStorage.
  * Generates and persists a fresh pair on first call.

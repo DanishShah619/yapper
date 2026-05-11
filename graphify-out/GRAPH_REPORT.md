@@ -1,12 +1,12 @@
 # Graph Report - yapper  (2026-05-11)
 
 ## Corpus Check
-- 101 files · ~49,183 words
+- 101 files · ~49,833 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 288 nodes · 279 edges · 12 communities detected
-- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 34 edges (avg confidence: 0.8)
+- 291 nodes · 291 edges · 12 communities detected
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 36 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -24,42 +24,42 @@
 - [[_COMMUNITY_Community 11|Community 11]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `loadRoomKey()` - 9 edges
-2. `loadLocalKeyPair()` - 7 edges
-3. `pushHealthUpdateToAdmins()` - 7 edges
-4. `decryptMessages()` - 6 edges
-5. `isClient()` - 6 edges
-6. `storeRoomKey()` - 6 edges
-7. `getOrRequestGroupKey()` - 6 edges
-8. `getOrCreateKeyPair()` - 6 edges
-9. `getAccountKeyPair()` - 6 edges
-10. `runDetection()` - 6 edges
+1. `loadRoomKey()` - 10 edges
+2. `getGroupRoomKey()` - 9 edges
+3. `handleSend()` - 7 edges
+4. `storeRoomKey()` - 7 edges
+5. `loadLocalKeyPair()` - 7 edges
+6. `getAccountKeyPair()` - 7 edges
+7. `pushHealthUpdateToAdmins()` - 7 edges
+8. `decryptMessages()` - 6 edges
+9. `isClient()` - 6 edges
+10. `getOrRequestGroupKey()` - 6 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `handleSend()` --calls--> `encryptMessage()`  [INFERRED]
+  app\groups\[id]\page.tsx → lib\e2ee.ts
+- `handleSend()` --calls--> `getGroupRoomKey()`  [INFERRED]
+  app\groups\[id]\page.tsx → lib\e2ee.ts
 - `handleSend()` --calls--> `loadRoomKey()`  [INFERRED]
   app\groups\[id]\page.tsx → lib\e2ee.ts
 - `handleDownloadAttachment()` --calls--> `loadRoomKey()`  [INFERRED]
   components\ui\ChatPanel.tsx → lib\e2ee.ts
 - `handleDownloadAttachment()` --calls--> `decryptFile()`  [INFERRED]
   components\ui\ChatPanel.tsx → lib\e2ee.ts
-- `handleUpdateMessage()` --calls--> `loadRoomKey()`  [INFERRED]
-  components\ui\ChatPanel.tsx → lib\e2ee.ts
-- `handleUpdateMessage()` --calls--> `encryptMessage()`  [INFERRED]
-  components\ui\ChatPanel.tsx → lib\e2ee.ts
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.18
-Nodes (21): decryptMessages(), accountKey(), deriveRoomKey(), E2EEKeyMissingError, exportRoomKey(), generateAndStoreGroupKey(), generateKeyPair(), generateRoomKey() (+13 more)
+Cohesion: 0.16
+Nodes (26): decryptMessages(), handleUpdateMessage(), accountKey(), deriveRoomKey(), E2EEKeyMissingError, encryptMessage(), exportRoomKey(), generateAndStoreGroupKey() (+18 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.12
-Nodes (9): base64ToArrayBuffer(), cancelEditingMessage(), handleDeleteMessage(), handleDownloadAttachment(), handleFileSelect(), handleUpdateMessage(), isSupportedAttachment(), saveDecryptedAttachment() (+1 more)
+Nodes (8): base64ToArrayBuffer(), cancelEditingMessage(), handleDeleteMessage(), handleDownloadAttachment(), handleFileSelect(), isSupportedAttachment(), saveDecryptedAttachment(), decryptFile()
 
 ### Community 2 - "Community 2"
-Cohesion: 0.12
-Nodes (7): encryptMessage(), handleSendToGroup(), handleKeyDown(), handleSend(), join(), usePresence(), validateInput()
+Cohesion: 0.18
+Nodes (6): handleKeyDown(), handleSend(), join(), persistWrappedKeys(), usePresence(), validateInput()
 
 ### Community 3 - "Community 3"
 Cohesion: 0.18
@@ -82,12 +82,12 @@ Cohesion: 0.22
 Nodes (5): verifyRedisConnection(), checkReadiness(), main(), withTimeout(), setIO()
 
 ### Community 8 - "Community 8"
-Cohesion: 0.42
-Nodes (8): detectAndAlertStaleShards(), getRoomKeyHealth(), markShardAcknowledged(), markShardDecrypted(), markShardDelivered(), pushHealthUpdateToAdmins(), redeliverShard(), getIO()
-
-### Community 9 - "Community 9"
 Cohesion: 0.36
 Nodes (7): emitRealtimeMessage(), emitRealtimeMessageDelete(), emitRealtimeMessageUpdate(), toFileShape(), toMsgShape(), toUserShape(), tryGetIO()
+
+### Community 9 - "Community 9"
+Cohesion: 0.42
+Nodes (8): detectAndAlertStaleShards(), getRoomKeyHealth(), markShardAcknowledged(), markShardDecrypted(), markShardDelivered(), pushHealthUpdateToAdmins(), redeliverShard(), getIO()
 
 ### Community 10 - "Community 10"
 Cohesion: 0.29
@@ -100,17 +100,17 @@ Nodes (5): handleLogout(), disconnectSocket(), getAuthPayload(), getSocket(), re
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `loadRoomKey()` connect `Community 0` to `Community 1`, `Community 2`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **Why does `handleSend()` connect `Community 2` to `Community 0`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
-- **Why does `getIO()` connect `Community 8` to `Community 7`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
+- **Why does `loadRoomKey()` connect `Community 0` to `Community 1`, `Community 2`?**
+  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+- **Why does `getIO()` connect `Community 9` to `Community 7`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Are the 5 inferred relationships involving `loadRoomKey()` (e.g. with `handleSend()` and `decryptMessages()`) actually correct?**
+- **Are the 5 inferred relationships involving `loadRoomKey()` (e.g. with `decryptMessages()` and `handleDownloadAttachment()`) actually correct?**
   _`loadRoomKey()` has 5 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 5 inferred relationships involving `decryptMessages()` (e.g. with `getAccountKeyPair()` and `getDMRoomKey()`) actually correct?**
-  _`decryptMessages()` has 5 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 2 inferred relationships involving `getGroupRoomKey()` (e.g. with `handleSend()` and `handleSendToGroup()`) actually correct?**
+  _`getGroupRoomKey()` has 2 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 3 inferred relationships involving `handleSend()` (e.g. with `encryptMessage()` and `getGroupRoomKey()`) actually correct?**
+  _`handleSend()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
-- **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.12 - nodes in this community are weakly interconnected._

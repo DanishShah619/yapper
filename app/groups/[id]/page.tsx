@@ -9,19 +9,19 @@ import { Avatar } from '@/components/ui/Avatar';
 import { MemberPanel } from '@/components/ui/MemberPanel';
 import { GroupSettingsPanel } from '@/components/ui/GroupSettingsPanel';
 import { useToast } from '@/components/ui/Toast';
-import { encryptMessage, loadRoomKey } from '@/lib/e2ee';
+import { encryptMessage, getGroupRoomKey, WrappedGroupKey } from '@/lib/e2ee';
 import { getSocket } from '@/lib/socketClient';
 
 const GET_GROUP = gql`
   query GetGroup($id: ID!) {
     group(id: $id) {
       id name avatarUrl type locked createdBy
-      members { id role user { id username avatarUrl } }
+      members { id role encryptedKey user { id username avatarUrl publicKey } }
     }
   }
 `;
 
-const ME_QUERY = gql`query MeGroupChat { me { id } }`;
+const ME_QUERY = gql`query MeGroupChat { me { id publicKey } }`;
 
 const GET_GROUP_MESSAGES = gql`
   query GetGroupMessages($groupId: ID!, $cursor: String, $limit: Int) {
@@ -46,6 +46,12 @@ const SEND_GROUP_MESSAGE = gql`
   }
 `;
 
+const SUBMIT_GROUP_KEYS = gql`
+  mutation SubmitGroupKeys($groupId: ID!, $wrappedKeys: [WrappedKeyInput!]!) {
+    submitRotatedGroupKeys(groupId: $groupId, wrappedKeys: $wrappedKeys)
+  }
+`;
+
 type GroupMemberNode = {
   id: string;
   role: "ADMIN" | "MEMBER";
@@ -53,7 +59,9 @@ type GroupMemberNode = {
     id: string;
     username: string;
     avatarUrl: string | null;
+    publicKey: string | null;
   };
+  encryptedKey: string | null;
 };
 
 type GroupNode = {
@@ -110,7 +118,7 @@ export default function GroupChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
+  const { data: meData } = useQuery<{ me: { id: string; publicKey: string | null } }>(ME_QUERY);
   const myId = meData?.me?.id;
 
   const { data: groupData, refetch: refetchGroup } = useQuery<{ group: GroupNode }>(GET_GROUP, { variables: { id } });
@@ -118,6 +126,13 @@ export default function GroupChatPage() {
 
   const { data: messagesData } = useQuery<GroupMessagesData>(GET_GROUP_MESSAGES, { variables: { groupId: id, limit: 50 } });
   const [sendMessage, { loading: sending }] = useMutation(SEND_GROUP_MESSAGE);
+  const [submitGroupKeys] = useMutation(SUBMIT_GROUP_KEYS);
+
+  const persistWrappedKeys = async (wrappedKeys: WrappedGroupKey[]) => {
+    if (wrappedKeys.length === 0) return;
+    await submitGroupKeys({ variables: { groupId: id, wrappedKeys } });
+    await refetchGroup();
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -178,10 +193,16 @@ export default function GroupChatPage() {
   }, [messages.length]);
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !myId || !group) return;
     try {
-      const roomKey = await loadRoomKey(id);
-      if (!roomKey) throw new Error('Room key unavailable. Ask an admin to redeliver the room key.');
+      const { roomKey, wrappedKeys } = await getGroupRoomKey(
+        id,
+        group.members,
+        myId,
+        meData?.me.publicKey,
+        { allowInitialize: true }
+      );
+      await persistWrappedKeys(wrappedKeys);
 
       const encryptedPayload = await encryptMessage(inputText.trim(), roomKey);
       await sendMessage({ variables: { groupId: id, encryptedPayload, ephemeral, ttl: ephemeral ? ttl : null } });
@@ -332,6 +353,7 @@ export default function GroupChatPage() {
         group={group}
         isAdmin={isAdmin}
         currentUserId={myId}
+        currentUserPublicKey={meData?.me.publicKey}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onRefresh={refetchGroup}

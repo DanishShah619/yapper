@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "@apollo/client/react";
 import { Copy, Link, Send, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/Toast";
-import { encryptMessage, loadRoomKey } from "@/lib/e2ee";
+import { encryptMessage, getGroupRoomKey } from "@/lib/e2ee";
 
 type InCallInvitePanelProps = {
   videoRoomId: string;
@@ -17,6 +17,14 @@ type GroupNode = {
   id: string;
   name: string;
   avatarUrl: string | null;
+  members: Array<{
+    role: string;
+    encryptedKey: string | null;
+    user: {
+      id: string;
+      publicKey: string | null;
+    };
+  }>;
 };
 
 const GENERATE_INVITE = gql`
@@ -31,7 +39,20 @@ const GET_GROUPS = gql`
       id
       name
       avatarUrl
+      members { role encryptedKey user { id publicKey } }
     }
+  }
+`;
+
+const ME_QUERY = gql`
+  query VideoInviteMe {
+    me { id publicKey }
+  }
+`;
+
+const SUBMIT_GROUP_KEYS = gql`
+  mutation SubmitVideoInviteGroupKeys($groupId: ID!, $wrappedKeys: [WrappedKeyInput!]!) {
+    submitRotatedGroupKeys(groupId: $groupId, wrappedKeys: $wrappedKeys)
   }
 `;
 
@@ -49,8 +70,10 @@ export function InCallInvitePanel({ videoRoomId, onClose }: InCallInvitePanelPro
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   const { data: groupsData, loading: groupsLoading } = useQuery<{ groups: GroupNode[] }>(GET_GROUPS);
+  const { data: meData } = useQuery<{ me: { id: string; publicKey: string | null } }>(ME_QUERY);
   const [generateInvite, { loading: generating }] = useMutation<{ generateVideoInviteLink: string }>(GENERATE_INVITE);
   const [sendMessage, { loading: sending }] = useMutation(SEND_INVITE_MESSAGE);
+  const [submitGroupKeys] = useMutation(SUBMIT_GROUP_KEYS);
 
   const handleGenerate = async () => {
     try {
@@ -76,27 +99,34 @@ export function InCallInvitePanel({ videoRoomId, onClose }: InCallInvitePanelPro
     }
   };
 
-  const handleSendToGroup = async (groupId: string, groupName: string) => {
-    if (!generatedLink) return;
+  const handleSendToGroup = async (group: GroupNode) => {
+    if (!generatedLink || !meData?.me) return;
 
     try {
-      const roomKey = await loadRoomKey(groupId);
-      if (!roomKey) {
-        throw new Error("Group key unavailable. Open the group once, then try again.");
+      const { roomKey, wrappedKeys } = await getGroupRoomKey(
+        group.id,
+        group.members,
+        meData.me.id,
+        meData.me.publicKey,
+        { allowInitialize: true }
+      );
+
+      if (wrappedKeys.length > 0) {
+        await submitGroupKeys({ variables: { groupId: group.id, wrappedKeys } });
       }
 
       const encryptedPayload = await encryptMessage(`Join my video call: ${generatedLink}`, roomKey);
 
       await sendMessage({
         variables: {
-          groupId,
+          groupId: group.id,
           encryptedPayload,
           ephemeral: false,
         },
       });
 
-      setSentTo(groupName);
-      showToast(`Invite sent to ${groupName}`, "success");
+      setSentTo(group.name);
+      showToast(`Invite sent to ${group.name}`, "success");
       window.setTimeout(() => setSentTo(null), 3000);
     } catch (error: unknown) {
       showToast(error instanceof Error ? error.message : "Could not send invite", "error");
@@ -173,7 +203,7 @@ export function InCallInvitePanel({ videoRoomId, onClose }: InCallInvitePanelPro
                   <button
                     key={group.id}
                     type="button"
-                    onClick={() => handleSendToGroup(group.id, group.name)}
+                    onClick={() => handleSendToGroup(group)}
                     disabled={sending}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#E1F0FF] cursor-pointer disabled:opacity-60 text-left"
                   >
