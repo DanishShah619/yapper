@@ -19,6 +19,7 @@ import {
   encryptMessage,
   getDMRoomKey,
   getOrCreateKeyPair,
+  loadLocalKeyPair,
   loadRoomKey,
 } from "@/lib/e2ee";
 
@@ -266,7 +267,15 @@ export function ChatPanel({
       let roomKey = await loadRoomKey(conversationId);
 
       if (!roomKey && conversationMembers.length <= 2 && currentUserId) {
-        const { privateKey } = await getOrCreateKeyPair();
+        const me = conversationMembers.find((member) => member.user.id === currentUserId)?.user;
+        const localPair = loadLocalKeyPair(currentUserId);
+        const keyPair = localPair ?? (!me?.publicKey ? await getOrCreateKeyPair(currentUserId) : null);
+
+        if (keyPair && me?.publicKey && keyPair.publicKey !== me.publicKey) {
+          throw new Error("This browser has a different encryption key for this account.");
+        }
+
+        const privateKey = keyPair?.privateKey;
         const otherMember = conversationMembers.find((member) => member.user.id !== currentUserId)?.user;
         const peerPublicKey = otherMember?.publicKey ?? conversationMembers[0]?.user.publicKey;
 

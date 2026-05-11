@@ -8,6 +8,7 @@ import {
   encryptMessage,
   getDMRoomKey,
   getOrCreateKeyPair,
+  loadLocalKeyPair,
   loadRoomKey,
 } from "@/lib/e2ee";
 import client from "@/lib/apollo-client";
@@ -138,8 +139,17 @@ export function useSendMessage() {
       if (!room) throw new Error("Conversation not found");
 
       const myId = currentUserId || meData.me.id;
-      const { privateKey } = await getOrCreateKeyPair();
-      if (!privateKey) throw new Error("Local encryption key is unavailable");
+      const localPair = loadLocalKeyPair(myId);
+      const keyPair = localPair ?? (!meData.me.publicKey ? await getOrCreateKeyPair(myId) : null);
+
+      if (!keyPair?.privateKey) {
+        throw new Error("This browser does not have your encryption key. Use the browser where this account was set up, or reset encryption for this account.");
+      }
+      if (meData.me.publicKey && keyPair.publicKey !== meData.me.publicKey) {
+        throw new Error("This browser has a different encryption key for this account. Use the original browser or reset encryption.");
+      }
+
+      const { privateKey } = keyPair;
 
       let roomKey = await loadRoomKey(roomId);
 

@@ -86,9 +86,15 @@ function useSendMessage() {
             if (!room)
                 throw new Error("Conversation not found");
             const myId = currentUserId || meData.me.id;
-            const { privateKey } = await (0, e2ee_1.getOrCreateKeyPair)();
-            if (!privateKey)
-                throw new Error("Local encryption key is unavailable");
+            const localPair = (0, e2ee_1.loadLocalKeyPair)(myId);
+            const keyPair = localPair !== null && localPair !== void 0 ? localPair : (!meData.me.publicKey ? await (0, e2ee_1.getOrCreateKeyPair)(myId) : null);
+            if (!(keyPair === null || keyPair === void 0 ? void 0 : keyPair.privateKey)) {
+                throw new Error("This browser does not have your encryption key. Use the browser where this account was set up, or reset encryption for this account.");
+            }
+            if (meData.me.publicKey && keyPair.publicKey !== meData.me.publicKey) {
+                throw new Error("This browser has a different encryption key for this account. Use the original browser or reset encryption.");
+            }
+            const { privateKey } = keyPair;
             let roomKey = await (0, e2ee_1.loadRoomKey)(roomId);
             if (!roomKey && room.members.length <= 2) {
                 const otherMember = (_a = room.members.find((member) => member.user.id !== myId)) === null || _a === void 0 ? void 0 : _a.user;

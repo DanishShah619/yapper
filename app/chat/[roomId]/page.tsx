@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   getOrCreateKeyPair,
+  loadLocalKeyPair,
   getDMRoomKey,
   encryptMessage,
   decryptMessage,
@@ -146,7 +147,15 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
     (async () => {
       try {
-        const { privateKey: myPriv } = await getOrCreateKeyPair();
+        const localPair = loadLocalKeyPair(me.id);
+        const keyPair = localPair ?? (!me.publicKey ? await getOrCreateKeyPair(me.id) : null);
+        if (!keyPair?.privateKey) {
+          throw new Error('This browser does not have your encryption key. Use the original browser or reset encryption.');
+        }
+        if (me.publicKey && keyPair.publicKey !== me.publicKey) {
+          throw new Error('This browser has a different encryption key for this account.');
+        }
+        const { privateKey: myPriv } = keyPair;
         if (!myPriv) throw new Error('Missing local private key');
 
         let theirPub = otherMember?.publicKey;

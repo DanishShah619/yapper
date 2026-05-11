@@ -1,6 +1,6 @@
 'use client';
 
-import { ApolloProvider, useMutation } from '@apollo/client/react';
+import { ApolloProvider, useMutation, useQuery } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import client from '@/lib/apollo-client';
 import { useCallback, useEffect, createContext, useContext, useState } from 'react';
@@ -12,7 +12,13 @@ import { useRouter } from 'next/navigation';
 const SocketContext = createContext<{ socket: Socket | null }>({ socket: null });
 
 export const useSocket = () => useContext(SocketContext);
-import { getOrCreateKeyPair } from '@/lib/e2ee';
+import { getOrCreateKeyPair, loadLocalKeyPair } from '@/lib/e2ee';
+
+const ME_PUBLIC_KEY = gql`
+  query ProviderMePublicKey {
+    me { id publicKey }
+  }
+`;
 
 const UPDATE_PUBLIC_KEY = gql`
   mutation UpdatePublicKey($publicKey: String!) {
@@ -39,6 +45,11 @@ type IncomingCall = {
  * This enables DM key derivation (task 3.1.4).
  */
 function KeyInitialiser() {
+  const { data: meData } = useQuery<{ me: { id: string; publicKey: string | null } }>(ME_PUBLIC_KEY, {
+    client,
+    fetchPolicy: 'network-only',
+    errorPolicy: 'ignore',
+  });
   const [updatePublicKey] = useMutation(UPDATE_PUBLIC_KEY, {
     client,
     onCompleted: () => {
@@ -50,15 +61,32 @@ function KeyInitialiser() {
   });
 
   const publishPublicKey = useCallback(async () => {
+    const me = meData?.me;
+    if (!me) return;
+
     try {
-      const { publicKey } = await getOrCreateKeyPair();
-      if (publicKey) {
+      const localPair = loadLocalKeyPair(me.id);
+
+      if (localPair) {
+        if (!me.publicKey || me.publicKey !== localPair.publicKey) {
+          await updatePublicKey({ variables: { publicKey: localPair.publicKey } });
+        }
+        return;
+      }
+
+      if (me.publicKey) {
+        localStorage.setItem(`nexchat:keyMissing:${me.id}`, 'true');
+        return;
+      }
+
+      const { publicKey } = await getOrCreateKeyPair(me.id);
+      if (publicKey && publicKey !== me.publicKey) {
         await updatePublicKey({ variables: { publicKey } });
       }
     } catch {
       // Non-fatal: key upload will be retried after auth changes or on next page load
     }
-  }, [updatePublicKey]);
+  }, [meData?.me, updatePublicKey]);
 
   useEffect(() => {
     publishPublicKey();

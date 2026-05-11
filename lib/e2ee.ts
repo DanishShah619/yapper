@@ -16,6 +16,10 @@ const NS_ROOM_KEY = 'nexchat:roomKey:';
 const NS_PRIV_KEY = 'nexchat:myPrivateKey';
 const NS_PUB_KEY  = 'nexchat:myPublicKey';
 
+function accountKey(base: string, userId?: string): string {
+  return userId ? `${base}:${userId}` : base;
+}
+
 // ─── AES-GCM Room Key ─────────────────────────────────────────────────────────
 
 /** Generate a fresh AES-GCM 256-bit symmetric key for a room or group. */
@@ -234,12 +238,12 @@ export async function wrapGroupKeyForNewMember(
 /**
  * Get the group key from local storage, or gracefully throw so the UI can recover.
  */
-export async function getOrRequestGroupKey(groupId: string, encryptedKey?: string, senderPublicKey?: string): Promise<CryptoKey> {
+export async function getOrRequestGroupKey(groupId: string, encryptedKey?: string, senderPublicKey?: string, userId?: string): Promise<CryptoKey> {
   const cached = await loadRoomKey(groupId);
   if (cached) return cached;
 
   if (encryptedKey && senderPublicKey) {
-    const { privateKey } = await getOrCreateKeyPair();
+    const { privateKey } = await getOrCreateKeyPair(userId);
     const unwrapped = await unwrapGroupKey(encryptedKey, senderPublicKey, privateKey);
     await storeRoomKey(groupId, unwrapped);
     return unwrapped;
@@ -262,19 +266,37 @@ export async function generateAndStoreGroupKey(groupId: string): Promise<CryptoK
  * Generates and persists a fresh pair on first call.
  * The private key never leaves the device.
  */
-export async function getOrCreateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-  if (!isClient()) return { publicKey: '', privateKey: '' };
+export function loadLocalKeyPair(userId?: string): { publicKey: string; privateKey: string } | null {
+  if (!isClient()) return null;
 
-  const storedPriv = localStorage.getItem(NS_PRIV_KEY);
-  const storedPub  = localStorage.getItem(NS_PUB_KEY);
+  const scopedPriv = localStorage.getItem(accountKey(NS_PRIV_KEY, userId));
+  const scopedPub = localStorage.getItem(accountKey(NS_PUB_KEY, userId));
 
-  if (storedPriv && storedPub) {
-    return { publicKey: storedPub, privateKey: storedPriv };
+  if (scopedPriv && scopedPub) {
+    return { publicKey: scopedPub, privateKey: scopedPriv };
   }
 
+  const legacyPriv = localStorage.getItem(NS_PRIV_KEY);
+  const legacyPub = localStorage.getItem(NS_PUB_KEY);
+
+  if (legacyPriv && legacyPub) {
+    if (userId) {
+      localStorage.setItem(accountKey(NS_PRIV_KEY, userId), legacyPriv);
+      localStorage.setItem(accountKey(NS_PUB_KEY, userId), legacyPub);
+    }
+    return { publicKey: legacyPub, privateKey: legacyPriv };
+  }
+
+  return null;
+}
+
+export async function getOrCreateKeyPair(userId?: string): Promise<{ publicKey: string; privateKey: string }> {
+  const stored = loadLocalKeyPair(userId);
+  if (stored) return stored;
+
   const pair = await generateKeyPair();
-  localStorage.setItem(NS_PRIV_KEY, pair.privateKey);
-  localStorage.setItem(NS_PUB_KEY,  pair.publicKey);
+  localStorage.setItem(accountKey(NS_PRIV_KEY, userId), pair.privateKey);
+  localStorage.setItem(accountKey(NS_PUB_KEY, userId), pair.publicKey);
   return pair;
 }
 
