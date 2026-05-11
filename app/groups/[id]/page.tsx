@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { MemberPanel } from '@/components/ui/MemberPanel';
 import { GroupSettingsPanel } from '@/components/ui/GroupSettingsPanel';
 import { useToast } from '@/components/ui/Toast';
+import { encryptMessage, loadRoomKey } from '@/lib/e2ee';
 import { getSocket } from '@/lib/socketClient';
 
 const GET_GROUP = gql`
@@ -122,7 +123,9 @@ export default function GroupChatPage() {
     if (!id) return;
 
     const socket = getSocket();
-    const join = () => socket.emit('joinRoom', id);
+    const join = () => {
+      if (socket.connected) socket.emit('joinRoom', id);
+    };
     const handleMessage = (newMessage: GroupMessage) => {
       if (newMessage.groupId !== id && newMessage.roomId !== id) return;
       setRealtimeMessages((prev) => {
@@ -138,7 +141,7 @@ export default function GroupChatPage() {
     return () => {
       socket.off('connect', join);
       socket.off('message:new', handleMessage);
-      socket.emit('leaveRoom', id);
+      if (socket.connected) socket.emit('leaveRoom', id);
     };
   }, [id]);
 
@@ -177,9 +180,11 @@ export default function GroupChatPage() {
   const handleSend = async () => {
     if (!inputText.trim()) return;
     try {
-      // In a real E2EE app, we would encrypt the payload here.
-      // For UI implementation purposes, we'll send it directly as "encryptedPayload"
-      await sendMessage({ variables: { groupId: id, encryptedPayload: inputText, ephemeral, ttl: ephemeral ? ttl : null } });
+      const roomKey = await loadRoomKey(id);
+      if (!roomKey) throw new Error('Room key unavailable. Ask an admin to redeliver the room key.');
+
+      const encryptedPayload = await encryptMessage(inputText.trim(), roomKey);
+      await sendMessage({ variables: { groupId: id, encryptedPayload, ephemeral, ttl: ephemeral ? ttl : null } });
       setInputText('');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to send message', 'error');

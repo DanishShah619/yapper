@@ -79,7 +79,10 @@ function useChatMessages(roomId) {
         if (!roomId)
             return;
         const socket = (0, socketClient_1.getSocket)();
-        const join = () => socket.emit("joinRoom", roomId);
+        const join = () => {
+            if (socket.connected)
+                socket.emit("joinRoom", roomId);
+        };
         const handleMessage = (newMessage) => {
             if (newMessage.roomId !== roomId && newMessage.groupId !== roomId)
                 return;
@@ -108,7 +111,8 @@ function useChatMessages(roomId) {
             socket.off("message:new", handleMessage);
             socket.off("message:updated", handleMessageUpdate);
             socket.off("message:deleted", handleMessageUpdate);
-            socket.emit("leaveRoom", roomId);
+            if (socket.connected)
+                socket.emit("leaveRoom", roomId);
         };
     }, [roomId]);
     const canLoadMore = (_e = (_d = (_c = data === null || data === void 0 ? void 0 : data.messages) === null || _c === void 0 ? void 0 : _c.pageInfo) === null || _d === void 0 ? void 0 : _d.hasNextPage) !== null && _e !== void 0 ? _e : false;

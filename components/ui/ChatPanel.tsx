@@ -443,7 +443,9 @@ export function ChatPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const emitTypingStop = useCallback(
     debounce(() => {
-      socket.emit("typing:stop", { roomId: conversationId, userId: currentUserId });
+      if (socket.connected) {
+        socket.emit("typing:stop", { roomId: conversationId, userId: currentUserId });
+      }
     }, 2000),
     [conversationId, currentUserId, socket]
   );
@@ -451,10 +453,22 @@ export function ChatPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const emitTypingStart = useCallback(
     debounce(() => {
-      socket.emit("typing:start", { roomId: conversationId, userId: currentUserId });
+      if (socket.connected) {
+        socket.emit("typing:start", { roomId: conversationId, userId: currentUserId });
+      }
     }, 500, { leading: true, trailing: false }),
     [conversationId, currentUserId, socket]
   );
+
+  useEffect(() => {
+    return () => {
+      emitTypingStart.cancel();
+      emitTypingStop.cancel();
+      if (socket.connected) {
+        socket.emit("typing:stop", { roomId: conversationId, userId: currentUserId });
+      }
+    };
+  }, [conversationId, currentUserId, emitTypingStart, emitTypingStop, socket]);
 
   function handleTyping() {
     emitTypingStart();

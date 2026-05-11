@@ -198,6 +198,7 @@ export function useConversations(activeConversationId?: string | null) {
     const roomIds = new Set(roomsToSubscribe.map(room => room.id));
 
     const joinRooms = () => {
+      if (!socket.connected) return;
       roomsToSubscribe.forEach(room => socket.emit("joinRoom", room.id));
     };
 
@@ -234,7 +235,9 @@ export function useConversations(activeConversationId?: string | null) {
     return () => {
       socket.off("connect", joinRooms);
       socket.off("message:new", handleMessage);
-      roomsToSubscribe.forEach(room => socket.emit("leaveRoom", room.id));
+      if (socket.connected) {
+        roomsToSubscribe.forEach(room => socket.emit("leaveRoom", room.id));
+      }
     };
   }, [data?.conversations, groupData?.groups, activeConversationId, myId]);
 

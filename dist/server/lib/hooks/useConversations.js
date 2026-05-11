@@ -133,6 +133,8 @@ function useConversations(activeConversationId) {
         const roomsToSubscribe = subscribableConversations.slice(0, maxActiveSubscriptions);
         const roomIds = new Set(roomsToSubscribe.map(room => room.id));
         const joinRooms = () => {
+            if (!socket.connected)
+                return;
             roomsToSubscribe.forEach(room => socket.emit("joinRoom", room.id));
         };
         const handleMessage = (msg) => {
@@ -165,7 +167,9 @@ function useConversations(activeConversationId) {
         return () => {
             socket.off("connect", joinRooms);
             socket.off("message:new", handleMessage);
-            roomsToSubscribe.forEach(room => socket.emit("leaveRoom", room.id));
+            if (socket.connected) {
+                roomsToSubscribe.forEach(room => socket.emit("leaveRoom", room.id));
+            }
         };
     }, [data === null || data === void 0 ? void 0 : data.conversations, groupData === null || groupData === void 0 ? void 0 : groupData.groups, activeConversationId, myId]);
     const conversations = (0, react_2.useMemo)(() => {

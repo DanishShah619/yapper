@@ -110,7 +110,9 @@ export function useChatMessages(roomId: string | null) {
     if (!roomId) return;
 
     const socket = getSocket();
-    const join = () => socket.emit("joinRoom", roomId);
+    const join = () => {
+      if (socket.connected) socket.emit("joinRoom", roomId);
+    };
     const handleMessage = (newMessage: MessageNode) => {
       if (newMessage.roomId !== roomId && newMessage.groupId !== roomId) return;
       setRealtimeMessages((prev) => {
@@ -141,7 +143,7 @@ export function useChatMessages(roomId: string | null) {
       socket.off("message:new", handleMessage);
       socket.off("message:updated", handleMessageUpdate);
       socket.off("message:deleted", handleMessageUpdate);
-      socket.emit("leaveRoom", roomId);
+      if (socket.connected) socket.emit("leaveRoom", roomId);
     };
   }, [roomId]);
 
