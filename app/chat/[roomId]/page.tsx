@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, use } from 'react';
 import { useQuery, useMutation, useApolloClient } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   Send,
@@ -13,11 +13,9 @@ import {
   MessageSquareOff,
   ShieldAlert,
   Clock,
-  MoreVertical,
 } from 'lucide-react';
 import {
-  getOrCreateKeyPair,
-  loadLocalKeyPair,
+  getAccountKeyPair,
   getDMRoomKey,
   encryptMessage,
   decryptMessage,
@@ -98,6 +96,25 @@ interface Message {
   decryptionFailed?: boolean;
 }
 
+interface Room {
+  id: string;
+  name?: string | null;
+  type: string;
+  locked: boolean;
+  createdAt: string;
+  members: Array<{ user: User }>;
+}
+
+interface MessagesData {
+  messages: {
+    edges: Message[];
+  };
+}
+
+interface MessageReceivedData {
+  messageReceived: Message;
+}
+
 function Avatar({ user, size = 10 }: { user: User; size?: number }) {
   const sizeClass = `w-${size} h-${size}`;
   return (
@@ -132,13 +149,13 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
   const me: User | undefined = meData?.me;
 
   // 2. Load Conversation
-  const { data: convData, loading: convLoading, error: convError } = useQuery<{ conversation: any }>(CONVERSATION_QUERY, {
+  const { data: convData, loading: convLoading, error: convError } = useQuery<{ conversation: Room | null }>(CONVERSATION_QUERY, {
     variables: { id: roomId },
     skip: !me,
   });
   const room = convData?.conversation;
 
-  const otherMember = room?.members.find((m: any) => m.user.id !== me?.id)?.user;
+  const otherMember = room?.members.find((member) => member.user.id !== me?.id)?.user;
   const isSelfDM = room?.members.length === 1;
 
   // 3. Derive ECDH Key once we have both parties
@@ -147,15 +164,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
     (async () => {
       try {
-        const localPair = loadLocalKeyPair(me.id);
-        const keyPair = localPair ?? (!me.publicKey ? await getOrCreateKeyPair(me.id) : null);
-        if (!keyPair?.privateKey) {
-          throw new Error('This browser does not have your encryption key. Use the original browser or reset encryption.');
-        }
-        if (me.publicKey && keyPair.publicKey !== me.publicKey) {
-          throw new Error('This browser has a different encryption key for this account.');
-        }
-        const { privateKey: myPriv } = keyPair;
+        const { privateKey: myPriv } = await getAccountKeyPair(me.id, me.publicKey);
         if (!myPriv) throw new Error('Missing local private key');
 
         let theirPub = otherMember?.publicKey;
@@ -168,14 +177,14 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
         const derived = await getDMRoomKey(roomId, myPriv, theirPub);
         setRoomKey(derived);
-      } catch (err: any) {
-        setKeyError(err.message || 'Failed to derive E2E key.');
+      } catch (err: unknown) {
+        setKeyError(err instanceof Error ? err.message : 'Failed to derive E2E key.');
       }
     })();
   }, [me, room, otherMember, isSelfDM, roomId]);
 
   // 4. Load messages
-  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<{ messages: { edges: any[] } }>(MESSAGES_QUERY, {
+  const { data: msgData, refetch: refetchMessages, subscribeToMore } = useQuery<MessagesData>(MESSAGES_QUERY, {
     variables: { roomId, limit: 100 },
     skip: !roomId || !roomKey, // only fetch after key is ready
   });
@@ -186,21 +195,26 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
   useEffect(() => {
     if (!subscribeToMore || !roomId) return;
-    const unsubscribe = subscribeToMore({
+    const unsubscribe = subscribeToMore<MessageReceivedData>({
       document: MESSAGE_RECEIVED_SUBSCRIPTION,
       variables: { roomId },
       updateQuery: (prev, { subscriptionData }) => {
-        if (!subscriptionData.data) return prev as { messages: { edges: any[] } };
-        const newMsg = (subscriptionData.data as unknown as { messageReceived: any }).messageReceived;
-        lastReceivedAt.current = Date.now();
-        if (prev.messages?.edges?.some((m: any) => m.id === newMsg.id)) return prev as { messages: { edges: any[] } };
-        return {
-          ...prev,
+        const previous: MessagesData = {
           messages: {
-            ...prev.messages,
-            edges: [...(prev.messages?.edges || []), newMsg],
+            edges: (prev.messages?.edges ?? []).filter((message): message is Message => !!message),
+          },
+        };
+        if (!subscriptionData.data) return previous;
+        const newMsg = (subscriptionData.data as MessageReceivedData).messageReceived;
+        lastReceivedAt.current = Date.now();
+        if (previous.messages.edges.some((message) => message.id === newMsg.id)) return previous;
+        return {
+          ...previous,
+          messages: {
+            ...previous.messages,
+            edges: [...previous.messages.edges, newMsg],
           }
-        } as { messages: { edges: any[] } };
+        };
       }
     });
     return () => unsubscribe();
@@ -239,7 +253,7 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
           try {
             const p = await decryptMessage(m.encryptedPayload, roomKey);
             return { ...m, plaintext: p, decryptionFailed: false };
-          } catch (e) {
+          } catch {
             return { ...m, plaintext: '[Decryption failed]', decryptionFailed: true };
           }
         })
@@ -290,8 +304,8 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
       });
 
       refetchMessages();
-    } catch (e: any) {
-      alert(`Send failed: ${e.message}`);
+    } catch (e: unknown) {
+      alert(`Send failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
   };
 
@@ -345,6 +359,11 @@ export default function ChatPage({ params }: { params: Promise<{ roomId: string 
 
       {/* Main chat area */}
       <main className="flex-1 w-full bg-[#0B0E14] overflow-y-auto p-4 flex flex-col gap-3">
+        {gapWarning && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200">
+            Some ephemeral messages may have expired while you were offline.
+          </div>
+        )}
         {keyError ? (
           <div className="m-auto p-4 bg-red-900/20 border border-red-500/30 rounded-2xl flex flex-col items-center text-center">
             <ShieldAlert size={32} className="text-red-400 mb-2" />

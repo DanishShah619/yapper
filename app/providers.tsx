@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 const SocketContext = createContext<{ socket: Socket | null }>({ socket: null });
 
 export const useSocket = () => useContext(SocketContext);
-import { getOrCreateKeyPair, loadLocalKeyPair } from '@/lib/e2ee';
+import { getOrCreateKeyPair, loadLocalKeyPair, markAccountKeyMissing, markAccountKeyMismatch } from '@/lib/e2ee';
 
 const ME_PUBLIC_KEY = gql`
   query ProviderMePublicKey {
@@ -68,14 +68,16 @@ function KeyInitialiser() {
       const localPair = loadLocalKeyPair(me.id);
 
       if (localPair) {
-        if (!me.publicKey || me.publicKey !== localPair.publicKey) {
+        if (!me.publicKey) {
           await updatePublicKey({ variables: { publicKey: localPair.publicKey } });
+        } else if (me.publicKey !== localPair.publicKey) {
+          markAccountKeyMismatch(me.id);
         }
         return;
       }
 
       if (me.publicKey) {
-        localStorage.setItem(`nexchat:keyMissing:${me.id}`, 'true');
+        markAccountKeyMissing(me.id);
         return;
       }
 

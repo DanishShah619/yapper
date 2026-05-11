@@ -17,9 +17,8 @@ import {
   decryptFile,
   decryptMessage,
   encryptMessage,
+  getAccountKeyPair,
   getDMRoomKey,
-  getOrCreateKeyPair,
-  loadLocalKeyPair,
   loadRoomKey,
 } from "@/lib/e2ee";
 
@@ -244,6 +243,7 @@ export function ChatPanel({
   const [editingText, setEditingText] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [encryptionError, setEncryptionError] = useState<string | null>(null);
   
   const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
 
@@ -264,24 +264,20 @@ export function ChatPanel({
     let cancelled = false;
 
     async function decryptMessages() {
-      let roomKey = await loadRoomKey(conversationId);
+      setEncryptionError(null);
+      let roomKey: CryptoKey | null = null;
 
-      if (!roomKey && conversationMembers.length <= 2 && currentUserId) {
+      if (conversationMembers.length <= 2 && currentUserId) {
         const me = conversationMembers.find((member) => member.user.id === currentUserId)?.user;
-        const localPair = loadLocalKeyPair(currentUserId);
-        const keyPair = localPair ?? (!me?.publicKey ? await getOrCreateKeyPair(currentUserId) : null);
-
-        if (keyPair && me?.publicKey && keyPair.publicKey !== me.publicKey) {
-          throw new Error("This browser has a different encryption key for this account.");
-        }
-
-        const privateKey = keyPair?.privateKey;
+        const { privateKey } = await getAccountKeyPair(currentUserId, me?.publicKey);
         const otherMember = conversationMembers.find((member) => member.user.id !== currentUserId)?.user;
         const peerPublicKey = otherMember?.publicKey ?? conversationMembers[0]?.user.publicKey;
 
         if (privateKey && peerPublicKey) {
           roomKey = await getDMRoomKey(conversationId, privateKey, peerPublicKey);
         }
+      } else {
+        roomKey = await loadRoomKey(conversationId);
       }
 
       const decrypted = await Promise.all(messages.map(async (msg) => {
@@ -349,8 +345,13 @@ export function ChatPanel({
       });
     }
 
-    decryptMessages().catch(() => {
+    decryptMessages().catch((error: unknown) => {
       if (!cancelled) {
+        setEncryptionError(
+          error instanceof Error
+            ? error.message
+            : "This browser does not have the encryption key for this conversation."
+        );
         setDecryptedMessages((prev) => prev.filter(m => m.isPending || m.isFailed));
       }
     });
@@ -951,6 +952,9 @@ export function ChatPanel({
         )}
         {attachmentError && (
           <p className="mb-2 px-1 text-xs font-semibold text-[#DC2626]">{attachmentError}</p>
+        )}
+        {encryptionError && (
+          <p className="mb-2 px-1 text-xs font-semibold text-[#DC2626]">{encryptionError}</p>
         )}
         <div className="flex items-end gap-3">
           <input

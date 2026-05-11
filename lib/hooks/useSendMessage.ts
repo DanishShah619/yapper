@@ -6,9 +6,8 @@ import { useState } from "react";
 import {
   encryptFile,
   encryptMessage,
+  getAccountKeyPair,
   getDMRoomKey,
-  getOrCreateKeyPair,
-  loadLocalKeyPair,
   loadRoomKey,
 } from "@/lib/e2ee";
 import client from "@/lib/apollo-client";
@@ -139,21 +138,11 @@ export function useSendMessage() {
       if (!room) throw new Error("Conversation not found");
 
       const myId = currentUserId || meData.me.id;
-      const localPair = loadLocalKeyPair(myId);
-      const keyPair = localPair ?? (!meData.me.publicKey ? await getOrCreateKeyPair(myId) : null);
+      const { privateKey } = await getAccountKeyPair(myId, meData.me.publicKey);
 
-      if (!keyPair?.privateKey) {
-        throw new Error("This browser does not have your encryption key. Use the browser where this account was set up, or reset encryption for this account.");
-      }
-      if (meData.me.publicKey && keyPair.publicKey !== meData.me.publicKey) {
-        throw new Error("This browser has a different encryption key for this account. Use the original browser or reset encryption.");
-      }
+      let roomKey: CryptoKey | null = null;
 
-      const { privateKey } = keyPair;
-
-      let roomKey = await loadRoomKey(roomId);
-
-      if (!roomKey && room.members.length <= 2) {
+      if (room.members.length <= 2) {
         const otherMember = room.members.find((member) => member.user.id !== myId)?.user;
         const peerPublicKey = otherMember?.publicKey ?? meData.me.publicKey;
 
@@ -162,6 +151,8 @@ export function useSendMessage() {
         }
 
         roomKey = await getDMRoomKey(roomId, privateKey, peerPublicKey);
+      } else {
+        roomKey = await loadRoomKey(roomId);
       }
 
       if (!roomKey) {

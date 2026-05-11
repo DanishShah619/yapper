@@ -188,6 +188,22 @@ export class E2EEKeyMissingError extends Error {
   }
 }
 
+export const MISSING_ACCOUNT_KEY_MESSAGE =
+  'This browser does not have your encryption key. Use the browser where this account was set up, or reset encryption for this account.';
+
+export const ACCOUNT_KEY_MISMATCH_MESSAGE =
+  'This browser has a different encryption key for this account. Use the original browser or reset encryption.';
+
+export function markAccountKeyMissing(userId: string): void {
+  if (!isClient()) return;
+  localStorage.setItem(`nexchat:keyMissing:${userId}`, 'true');
+}
+
+export function markAccountKeyMismatch(userId: string): void {
+  if (!isClient()) return;
+  localStorage.setItem(`nexchat:keyMismatch:${userId}`, 'true');
+}
+
 /**
  * Unwrap a group AES-GCM key derived from a pairwise-wrapped payload.
  */
@@ -243,7 +259,12 @@ export async function getOrRequestGroupKey(groupId: string, encryptedKey?: strin
   if (cached) return cached;
 
   if (encryptedKey && senderPublicKey) {
-    const { privateKey } = await getOrCreateKeyPair(userId);
+    const localPair = loadLocalKeyPair(userId);
+    if (!localPair?.privateKey) {
+      if (userId) markAccountKeyMissing(userId);
+      throw new E2EEKeyMissingError(MISSING_ACCOUNT_KEY_MESSAGE);
+    }
+    const { privateKey } = localPair;
     const unwrapped = await unwrapGroupKey(encryptedKey, senderPublicKey, privateKey);
     await storeRoomKey(groupId, unwrapped);
     return unwrapped;
@@ -300,9 +321,32 @@ export async function getOrCreateKeyPair(userId?: string): Promise<{ publicKey: 
   return pair;
 }
 
+export async function getAccountKeyPair(
+  userId: string,
+  serverPublicKey?: string | null
+): Promise<{ publicKey: string; privateKey: string }> {
+  const localPair = loadLocalKeyPair(userId);
+
+  if (localPair) {
+    if (serverPublicKey && localPair.publicKey !== serverPublicKey) {
+      markAccountKeyMismatch(userId);
+      throw new E2EEKeyMissingError(ACCOUNT_KEY_MISMATCH_MESSAGE);
+    }
+    return localPair;
+  }
+
+  if (serverPublicKey) {
+    markAccountKeyMissing(userId);
+    throw new E2EEKeyMissingError(MISSING_ACCOUNT_KEY_MESSAGE);
+  }
+
+  return getOrCreateKeyPair(userId);
+}
+
 /**
  * Get or derive a DM room key via ECDH.
- * The derived key is cached in localStorage to avoid re-derivation on every page load.
+ * DMs are derived from the current validated account keys each time so a stale
+ * cached room key cannot mask an account-key mismatch.
  *
  * @param dmRoomId      The DM room UUID (used as cache key)
  * @param myPrivateKey  This user's ECDH private key (base64 JWK)
@@ -313,9 +357,6 @@ export async function getDMRoomKey(
   myPrivateKey: string,
   theirPublicKey: string
 ): Promise<CryptoKey> {
-  const cached = await loadRoomKey(dmRoomId);
-  if (cached) return cached;
-
   const derived = await deriveRoomKey(myPrivateKey, theirPublicKey);
   await storeRoomKey(dmRoomId, derived);
   return derived;
