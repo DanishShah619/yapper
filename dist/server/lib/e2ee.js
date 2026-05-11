@@ -12,7 +12,7 @@
  * Tasks 3.1.1 – 3.1.4 (replaces incorrect libsodium implementation — B-05 fix)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.E2EEKeyMissingError = void 0;
+exports.ACCOUNT_KEY_MISMATCH_MESSAGE = exports.MISSING_ACCOUNT_KEY_MESSAGE = exports.E2EEKeyMissingError = void 0;
 exports.generateRoomKey = generateRoomKey;
 exports.exportRoomKey = exportRoomKey;
 exports.importRoomKey = importRoomKey;
@@ -24,12 +24,16 @@ exports.generateKeyPair = generateKeyPair;
 exports.deriveRoomKey = deriveRoomKey;
 exports.storeRoomKey = storeRoomKey;
 exports.loadRoomKey = loadRoomKey;
+exports.markAccountKeyMissing = markAccountKeyMissing;
+exports.markAccountKeyMismatch = markAccountKeyMismatch;
 exports.unwrapGroupKey = unwrapGroupKey;
 exports.wrapGroupKeyForNewMember = wrapGroupKeyForNewMember;
 exports.getOrRequestGroupKey = getOrRequestGroupKey;
 exports.generateAndStoreGroupKey = generateAndStoreGroupKey;
+exports.getGroupRoomKey = getGroupRoomKey;
 exports.loadLocalKeyPair = loadLocalKeyPair;
 exports.getOrCreateKeyPair = getOrCreateKeyPair;
+exports.getAccountKeyPair = getAccountKeyPair;
 exports.getDMRoomKey = getDMRoomKey;
 // ─── Local storage key namespaces ────────────────────────────────────────────
 const NS_ROOM_KEY = 'nexchat:roomKey:';
@@ -175,6 +179,18 @@ class E2EEKeyMissingError extends Error {
     }
 }
 exports.E2EEKeyMissingError = E2EEKeyMissingError;
+exports.MISSING_ACCOUNT_KEY_MESSAGE = 'This browser does not have your encryption key. Use the browser where this account was set up, or reset encryption for this account.';
+exports.ACCOUNT_KEY_MISMATCH_MESSAGE = 'This browser has a different encryption key for this account. Use the original browser or reset encryption.';
+function markAccountKeyMissing(userId) {
+    if (!isClient())
+        return;
+    localStorage.setItem(`nexchat:keyMissing:${userId}`, 'true');
+}
+function markAccountKeyMismatch(userId) {
+    if (!isClient())
+        return;
+    localStorage.setItem(`nexchat:keyMismatch:${userId}`, 'true');
+}
 /**
  * Unwrap a group AES-GCM key derived from a pairwise-wrapped payload.
  */
@@ -203,7 +219,13 @@ async function getOrRequestGroupKey(groupId, encryptedKey, senderPublicKey, user
     if (cached)
         return cached;
     if (encryptedKey && senderPublicKey) {
-        const { privateKey } = await getOrCreateKeyPair(userId);
+        const localPair = loadLocalKeyPair(userId);
+        if (!(localPair === null || localPair === void 0 ? void 0 : localPair.privateKey)) {
+            if (userId)
+                markAccountKeyMissing(userId);
+            throw new E2EEKeyMissingError(exports.MISSING_ACCOUNT_KEY_MESSAGE);
+        }
+        const { privateKey } = localPair;
         const unwrapped = await unwrapGroupKey(encryptedKey, senderPublicKey, privateKey);
         await storeRoomKey(groupId, unwrapped);
         return unwrapped;
@@ -215,6 +237,57 @@ async function generateAndStoreGroupKey(groupId) {
     const key = await generateRoomKey();
     await storeRoomKey(groupId, key);
     return key;
+}
+async function wrapGroupKeyForMembers(groupKey, members, myPrivateKey) {
+    const wrappedKeys = await Promise.all(members.map(async (member) => {
+        if (!member.user.publicKey)
+            return null;
+        return {
+            memberId: member.user.id,
+            encryptedKey: await wrapGroupKeyForNewMember(groupKey, member.user.publicKey, myPrivateKey),
+        };
+    }));
+    return wrappedKeys.filter((wrapped) => wrapped !== null);
+}
+/**
+ * Resolve the AES-GCM key used by a group.
+ *
+ * Existing wrapped keys do not carry a sender id in the current schema, so when
+ * a local cache miss occurs we try known member public keys until one unwraps.
+ * Admins can initialize a missing group key and receive the wrapped payloads the
+ * caller should persist through submitRotatedGroupKeys.
+ */
+async function getGroupRoomKey(groupId, members, currentUserId, serverPublicKey, options = {}) {
+    const cached = await loadRoomKey(groupId);
+    if (cached)
+        return { roomKey: cached, wrappedKeys: [] };
+    const localPair = await getAccountKeyPair(currentUserId, serverPublicKey);
+    const currentMember = members.find((member) => member.user.id === currentUserId);
+    if (currentMember === null || currentMember === void 0 ? void 0 : currentMember.encryptedKey) {
+        const candidatePublicKeys = [
+            ...members.filter((member) => member.role === 'ADMIN').map((member) => member.user.publicKey),
+            currentMember.user.publicKey,
+            ...members.map((member) => member.user.publicKey),
+        ].filter((publicKey) => !!publicKey);
+        for (const senderPublicKey of Array.from(new Set(candidatePublicKeys))) {
+            try {
+                const unwrapped = await unwrapGroupKey(currentMember.encryptedKey, senderPublicKey, localPair.privateKey);
+                await storeRoomKey(groupId, unwrapped);
+                return { roomKey: unwrapped, wrappedKeys: [] };
+            }
+            catch (_a) {
+                // The schema does not identify the wrapping sender; try the next key.
+            }
+        }
+        throw new E2EEKeyMissingError('Your delivered group key could not be decrypted. Ask a group admin to redeliver the room key.');
+    }
+    if (!options.allowInitialize || (currentMember === null || currentMember === void 0 ? void 0 : currentMember.role) !== 'ADMIN') {
+        throw new E2EEKeyMissingError('Your encryption key for this group has not been delivered yet. ' +
+            'Wait or ask a group admin to redeliver the room key.');
+    }
+    const roomKey = await generateAndStoreGroupKey(groupId);
+    const wrappedKeys = await wrapGroupKeyForMembers(roomKey, members, localPair.privateKey);
+    return { roomKey, wrappedKeys };
 }
 /**
  * Get or create the user's ECDH key pair from localStorage.
@@ -249,18 +322,31 @@ async function getOrCreateKeyPair(userId) {
     localStorage.setItem(accountKey(NS_PUB_KEY, userId), pair.publicKey);
     return pair;
 }
+async function getAccountKeyPair(userId, serverPublicKey) {
+    const localPair = loadLocalKeyPair(userId);
+    if (localPair) {
+        if (serverPublicKey && localPair.publicKey !== serverPublicKey) {
+            markAccountKeyMismatch(userId);
+            throw new E2EEKeyMissingError(exports.ACCOUNT_KEY_MISMATCH_MESSAGE);
+        }
+        return localPair;
+    }
+    if (serverPublicKey) {
+        markAccountKeyMissing(userId);
+        throw new E2EEKeyMissingError(exports.MISSING_ACCOUNT_KEY_MESSAGE);
+    }
+    return getOrCreateKeyPair(userId);
+}
 /**
  * Get or derive a DM room key via ECDH.
- * The derived key is cached in localStorage to avoid re-derivation on every page load.
+ * DMs are derived from the current validated account keys each time so a stale
+ * cached room key cannot mask an account-key mismatch.
  *
  * @param dmRoomId      The DM room UUID (used as cache key)
  * @param myPrivateKey  This user's ECDH private key (base64 JWK)
  * @param theirPublicKey  Other user's ECDH public key (base64 JWK from server)
  */
 async function getDMRoomKey(dmRoomId, myPrivateKey, theirPublicKey) {
-    const cached = await loadRoomKey(dmRoomId);
-    if (cached)
-        return cached;
     const derived = await deriveRoomKey(myPrivateKey, theirPublicKey);
     await storeRoomKey(dmRoomId, derived);
     return derived;

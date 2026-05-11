@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { MemberPanel } from '@/components/ui/MemberPanel';
 import { GroupSettingsPanel } from '@/components/ui/GroupSettingsPanel';
 import { useToast } from '@/components/ui/Toast';
-import { encryptMessage, getGroupRoomKey, WrappedGroupKey } from '@/lib/e2ee';
+import { decryptMessage, encryptMessage, getGroupRoomKey, WrappedGroupKey } from '@/lib/e2ee';
 import { getSocket } from '@/lib/socketClient';
 
 const GET_GROUP = gql`
@@ -87,6 +87,8 @@ type GroupMessage = {
     username: string;
     avatarUrl: string | null;
   };
+  plaintext?: string;
+  decryptionFailed?: boolean;
 };
 
 type GroupMessagesData = {
@@ -114,6 +116,9 @@ export default function GroupChatPage() {
   const [ephemeral, setEphemeral] = useState(false);
   const [ttl, setTtl] = useState(86400);
   const [realtimeMessages, setRealtimeMessages] = useState<GroupMessage[]>([]);
+  const [roomKey, setRoomKey] = useState<CryptoKey | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [decryptedMessages, setDecryptedMessages] = useState<GroupMessage[]>([]);
   const [now, setNow] = useState(() => Date.now());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,11 +133,43 @@ export default function GroupChatPage() {
   const [sendMessage, { loading: sending }] = useMutation(SEND_GROUP_MESSAGE);
   const [submitGroupKeys] = useMutation(SUBMIT_GROUP_KEYS);
 
-  const persistWrappedKeys = async (wrappedKeys: WrappedGroupKey[]) => {
+  const persistWrappedKeys = useCallback(async (wrappedKeys: WrappedGroupKey[]) => {
     if (wrappedKeys.length === 0) return;
     await submitGroupKeys({ variables: { groupId: id, wrappedKeys } });
     await refetchGroup();
-  };
+  }, [id, refetchGroup, submitGroupKeys]);
+
+  useEffect(() => {
+    if (!group || !myId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setKeyError(null);
+        const { roomKey: resolvedRoomKey, wrappedKeys } = await getGroupRoomKey(
+          id,
+          group.members,
+          myId,
+          meData?.me.publicKey,
+          { allowInitialize: true }
+        );
+
+        if (cancelled) return;
+
+        setRoomKey(resolvedRoomKey);
+        await persistWrappedKeys(wrappedKeys);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        setRoomKey(null);
+        setKeyError(err instanceof Error ? err.message : 'Failed to load group encryption key');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [group, id, myId, meData?.me.publicKey, persistWrappedKeys]);
 
   useEffect(() => {
     if (!id) return;
@@ -174,6 +211,33 @@ export default function GroupChatPage() {
   }, [messagesData?.messages.edges, realtimeMessages, now]);
 
   useEffect(() => {
+    if (!roomKey) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const decrypted = await Promise.all(
+        messages.map(async (message) => {
+          if (message.plaintext) return message;
+
+          try {
+            const plaintext = await decryptMessage(message.encryptedPayload, roomKey);
+            return { ...message, plaintext, decryptionFailed: false };
+          } catch {
+            return { ...message, plaintext: '[Decryption failed]', decryptionFailed: true };
+          }
+        })
+      );
+
+      if (!cancelled) setDecryptedMessages(decrypted);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, roomKey]);
+
+  useEffect(() => {
     const expiringMessages = [
       ...(messagesData?.messages.edges ?? []),
       ...realtimeMessages,
@@ -195,16 +259,22 @@ export default function GroupChatPage() {
   const handleSend = async () => {
     if (!inputText.trim() || !myId || !group) return;
     try {
-      const { roomKey, wrappedKeys } = await getGroupRoomKey(
-        id,
-        group.members,
-        myId,
-        meData?.me.publicKey,
-        { allowInitialize: true }
-      );
-      await persistWrappedKeys(wrappedKeys);
+      let activeRoomKey = roomKey;
+      if (!activeRoomKey) {
+        const resolved = await getGroupRoomKey(
+          id,
+          group.members,
+          myId,
+          meData?.me.publicKey,
+          { allowInitialize: true }
+        );
+        activeRoomKey = resolved.roomKey;
+        setRoomKey(activeRoomKey);
+        await persistWrappedKeys(resolved.wrappedKeys);
+      }
 
-      const encryptedPayload = await encryptMessage(inputText.trim(), roomKey);
+      const plaintext = inputText.trim();
+      const encryptedPayload = await encryptMessage(plaintext, activeRoomKey);
       await sendMessage({ variables: { groupId: id, encryptedPayload, ephemeral, ttl: ephemeral ? ttl : null } });
       setInputText('');
     } catch (err: unknown) {
@@ -223,6 +293,7 @@ export default function GroupChatPage() {
 
   const myMembership = group.members.find((m) => m.user.id === myId);
   const isAdmin = myMembership?.role === 'ADMIN';
+  const displayedMessages = roomKey && decryptedMessages.length === messages.length ? decryptedMessages : messages;
   const memberPanelMembers = group.members.map((member) => ({
     id: member.user.id,
     username: member.user.username,
@@ -254,10 +325,12 @@ export default function GroupChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.length === 0 ? (
+        {keyError ? (
+          <div className="text-center text-sm font-medium text-red-500 my-10">{keyError}</div>
+        ) : displayedMessages.length === 0 ? (
           <div className="text-center text-sm font-medium text-[#6B7A99] my-10">No messages yet. Send one to start the conversation!</div>
         ) : (
-          messages.map((msg) => {
+          displayedMessages.map((msg) => {
             const isMe = msg.sender.id === myId;
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
@@ -265,8 +338,8 @@ export default function GroupChatPage() {
                   isMe 
                     ? 'ml-auto bg-[#FFFDF5] border border-[#D6E8F5] rounded-2xl rounded-tr-sm' 
                     : 'mr-auto bg-[#E1F0FF] rounded-2xl rounded-tl-sm'
-                }`}>
-                  {msg.encryptedPayload}
+                } ${msg.decryptionFailed ? 'opacity-60' : ''}`}>
+                  <p className="break-words whitespace-pre-wrap">{msg.plaintext ?? 'Decrypting...'}</p>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
                   {!isMe && <span className="text-xs font-medium text-[#6B7A99]">{msg.sender.username}</span>}
