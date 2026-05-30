@@ -192,18 +192,36 @@ async function main() {
       });
     });
     // Video/waiting room events
-    socket.on('waiting:joined', async (data) => {
-      const { roomId, user } = data;
+    socket.on('waiting:join', async (data) => {
+      const { roomId } = data;
       if (!roomId || !userId) return;
 
       try {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, username: true, avatarUrl: true },
+        });
+        if (!user) return;
+
         // Add to Redis waiting room set
         await pubClient.sAdd(`waitingroom:${roomId}`, userId);
 
         // Let the host/admin know the waiting room was updated
         io.to(`videoadmin:${roomId}`).emit('waiting:joined', { roomId, user });
       } catch (err) {
-        console.error('[Video] waiting:joined handler error:', err);
+        console.error('[Video] waiting:join handler error:', err);
+      }
+    });
+
+    socket.on('waiting:leave', async (data) => {
+      const { roomId } = data;
+      if (!roomId || !userId) return;
+
+      try {
+        await pubClient.sRem(`waitingroom:${roomId}`, userId);
+        io.to(`videoadmin:${roomId}`).emit('waiting:left', { roomId, userId });
+      } catch (err) {
+        console.error('[Video] waiting:leave handler error:', err);
       }
     });
 
@@ -216,6 +234,34 @@ async function main() {
         }
       } catch (err) {
         console.error('[Video] videoadmin:join handler error:', err);
+      }
+    });
+
+    socket.on('waiting:approve', async ({ roomId, participantId }) => {
+      if (!userId || !roomId || !participantId) return;
+      try {
+        const room = await prisma.videoRoom.findUnique({ where: { id: roomId } });
+        if (room?.createdBy !== userId) return;
+
+        await pubClient.sRem(`waitingroom:${roomId}`, participantId);
+        io.to(`user:${participantId}`).emit('waiting:approved', { roomId });
+        io.to(`videoadmin:${roomId}`).emit('waiting:left', { roomId, userId: participantId });
+      } catch (err) {
+        console.error('[Video] waiting:approve handler error:', err);
+      }
+    });
+
+    socket.on('waiting:reject', async ({ roomId, participantId }) => {
+      if (!userId || !roomId || !participantId) return;
+      try {
+        const room = await prisma.videoRoom.findUnique({ where: { id: roomId } });
+        if (room?.createdBy !== userId) return;
+
+        await pubClient.sRem(`waitingroom:${roomId}`, participantId);
+        io.to(`user:${participantId}`).emit('waiting:rejected', { roomId });
+        io.to(`videoadmin:${roomId}`).emit('waiting:left', { roomId, userId: participantId });
+      } catch (err) {
+        console.error('[Video] waiting:reject handler error:', err);
       }
     });
 

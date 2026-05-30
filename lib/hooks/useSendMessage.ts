@@ -4,6 +4,7 @@ import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { useState } from "react";
 import {
+  encryptFile,
   encryptMessage,
   getDMRoomKey,
   getOrCreateKeyPair,
@@ -12,8 +13,8 @@ import {
 import client from "@/lib/apollo-client";
 
 const SEND_MESSAGE = gql`
-  mutation SendMessage($roomId: ID!, $encryptedPayload: String!, $ephemeral: Boolean!, $ttl: Int) {
-    sendMessage(roomId: $roomId, encryptedPayload: $encryptedPayload, ephemeral: $ephemeral, ttl: $ttl) {
+  mutation SendMessage($roomId: ID!, $encryptedPayload: String!, $ephemeral: Boolean!, $ttl: Int, $fileId: ID) {
+    sendMessage(roomId: $roomId, encryptedPayload: $encryptedPayload, ephemeral: $ephemeral, ttl: $ttl, fileId: $fileId) {
       id
       roomId
       encryptedPayload
@@ -21,6 +22,18 @@ const SEND_MESSAGE = gql`
       expiresAt
       createdAt
       sender { id username avatarUrl }
+      file { id encryptedMetadata createdAt uploader { id username avatarUrl } }
+    }
+  }
+`;
+
+const UPLOAD_FILE = gql`
+  mutation UploadFile($roomId: ID!, $encryptedBlob: String!, $encryptedMetadata: String!) {
+    uploadFile(roomId: $roomId, encryptedBlob: $encryptedBlob, encryptedMetadata: $encryptedMetadata) {
+      id
+      encryptedMetadata
+      createdAt
+      uploader { id username avatarUrl }
     }
   }
 `;
@@ -48,6 +61,7 @@ interface SendMessageParams {
   ephemeral: boolean;
   ttl?: number;
   currentUserId: string;
+  attachment?: File | null;
 }
 
 type KeyUser = {
@@ -66,14 +80,33 @@ type MeData = {
   me: KeyUser;
 };
 
+type UploadFileData = {
+  uploadFile: {
+    id: string;
+  };
+};
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
 export function useSendMessage() {
   const [error, setError] = useState<string | null>(null);
   
   const [sendMessageMutation, { loading: mutationLoading }] = useMutation(SEND_MESSAGE);
+  const [uploadFileMutation, { loading: uploadLoading }] = useMutation<UploadFileData>(UPLOAD_FILE);
   
   const [isEncrypting, setIsEncrypting] = useState(false);
 
-  const loading = mutationLoading || isEncrypting;
+  const loading = mutationLoading || uploadLoading || isEncrypting;
 
   const sendMessage = async ({
     roomId,
@@ -81,6 +114,7 @@ export function useSendMessage() {
     ephemeral,
     ttl,
     currentUserId,
+    attachment,
   }: SendMessageParams): Promise<boolean> => {
     setError(null);
     setIsEncrypting(true);
@@ -124,7 +158,35 @@ export function useSendMessage() {
         throw new Error("Room key unavailable. Ask an admin to redeliver the room key.");
       }
 
-      const encryptedPayload = await encryptMessage(plaintext, roomKey);
+      if (attachment && ephemeral) {
+        throw new Error("Attachments are not supported on ephemeral messages yet");
+      }
+
+      let fileId: string | undefined;
+      const messageText = plaintext.trim() || (attachment ? "Attachment" : plaintext);
+
+      if (attachment) {
+        const encryptedBuffer = await encryptFile(await attachment.arrayBuffer(), roomKey);
+        const encryptedBlob = arrayBufferToBase64(encryptedBuffer);
+        const encryptedMetadata = await encryptMessage(JSON.stringify({
+          name: attachment.name,
+          type: attachment.type || "application/octet-stream",
+          size: attachment.size,
+        }), roomKey);
+
+        const uploadResult = await uploadFileMutation({
+          variables: {
+            roomId,
+            encryptedBlob,
+            encryptedMetadata,
+          },
+        });
+
+        fileId = uploadResult.data?.uploadFile?.id;
+        if (!fileId) throw new Error("File upload failed");
+      }
+
+      const encryptedPayload = await encryptMessage(messageText, roomKey);
 
       await sendMessageMutation({
         variables: {
@@ -132,6 +194,7 @@ export function useSendMessage() {
           encryptedPayload,
           ephemeral,
           ttl,
+          fileId,
         },
       });
 

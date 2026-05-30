@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
@@ -11,13 +11,13 @@ import { useToast } from '@/components/ui/Toast';
 
 const GET_LIVEKIT_TOKEN = gql`
   query GetLiveKitToken($roomId: ID!) {
-    liveKitToken(roomId: $roomId)
+    getLiveKitToken(roomId: $roomId)
   }
 `;
 
 const LOCK_VIDEO_ROOM = gql`
   mutation LockVideoRoom($roomId: ID!) {
-    lockVideoRoom(roomId: $roomId)
+    lockVideoRoom(roomId: $roomId) { id locked }
   }
 `;
 
@@ -30,15 +30,23 @@ const GET_VIDEO_ROOM_STATUS = gql`
 const ME_QUERY = gql`query MeVideoRoom { me { id } }`;
 
 // Internal controls component to access LiveKit context
+type RoomControlsProps = {
+  isAdmin: boolean;
+  locked: boolean;
+  waitingCount: number;
+  onToggleWaitingPanel: () => void;
+  onToggleLock: () => void;
+  onDisconnect: () => void;
+};
+
 function RoomControls({ 
-  roomId, 
   isAdmin, 
   locked, 
   waitingCount, 
   onToggleWaitingPanel, 
   onToggleLock, 
   onDisconnect 
-}: any) {
+}: RoomControlsProps) {
   const { localParticipant } = useLocalParticipant();
   const { showToast } = useToast();
 
@@ -60,8 +68,8 @@ function RoomControls({
     try {
       await localParticipant.setScreenShareEnabled(!sharing);
       setSharing(!sharing);
-    } catch (e: any) {
-      showToast(e.message || "Screen share failed or already in progress", "error");
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Screen share failed or already in progress", "error");
     }
   };
 
@@ -127,10 +135,12 @@ export default function VideoRoomPage() {
   const { showToast } = useToast();
 
   const [waitingPanelOpen, setWaitingPanelOpen] = useState(false);
-  const [waitingCount, setWaitingCount] = useState(0); // This would be synced via socket in a real app or within the panel
+  const waitingCount = 0; // This would be synced via socket in a real app or within the panel
 
   const { data: meData } = useQuery<{ me: { id: string } }>(ME_QUERY);
-  const { data: statusData, refetch: refetchStatus } = useQuery<{ videoRoom: any }>(GET_VIDEO_ROOM_STATUS, { variables: { id } });
+  const { data: statusData, refetch: refetchStatus } = useQuery<{
+    videoRoom: { id: string; locked: boolean; createdBy: string } | null;
+  }>(GET_VIDEO_ROOM_STATUS, { variables: { id } });
   
   const [lockVideoRoom] = useMutation(LOCK_VIDEO_ROOM, {
     onCompleted: () => {
@@ -140,15 +150,15 @@ export default function VideoRoomPage() {
     onError: (e) => showToast(e.message, "error")
   });
 
-  const { data: tokenData, loading: tokenLoading, error: tokenError } = useQuery<{ liveKitToken: string }>(GET_LIVEKIT_TOKEN, { 
+  const { data: tokenData, loading: tokenLoading, error: tokenError } = useQuery<{ getLiveKitToken: string }>(GET_LIVEKIT_TOKEN, { 
     variables: { roomId: id }
   });
 
   if (tokenLoading) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-white">Connecting...</div>;
   if (tokenError) return <div className="h-screen bg-[#0A0A0A] flex items-center justify-center text-[#DC2626]">{tokenError.message}</div>;
 
-  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://livekit.example.com";
-  const token = tokenData?.liveKitToken;
+  const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7880";
+  const token = tokenData?.getLiveKitToken;
 
   const isAdmin = statusData?.videoRoom?.createdBy === meData?.me?.id;
   const isLocked = statusData?.videoRoom?.locked || false;
@@ -171,7 +181,6 @@ export default function VideoRoomPage() {
           >
             <VideoConference />
             <RoomControls 
-              roomId={id}
               isAdmin={isAdmin}
               locked={isLocked}
               waitingCount={waitingCount}

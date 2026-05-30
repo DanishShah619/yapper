@@ -120,6 +120,7 @@ export const typeDefs = `#graphql
     roomId: ID
     groupId: ID
     sender: User!
+    file: File
     encryptedPayload: String!
     ephemeral: Boolean!
     expiresAt: DateTime
@@ -141,6 +142,7 @@ export const typeDefs = `#graphql
     roomId: ID!
     uploader: User!
     encryptedMetadata: String!
+    encryptedBlob: String
     createdAt: DateTime!
   }
 
@@ -214,6 +216,7 @@ export const typeDefs = `#graphql
     conversation(id: ID!): Room
     conversations: [Room!]!
     messages(roomId: ID, groupId: ID, cursor: String, limit: Int): MessageConnection!
+    file(id: ID!): File
     group(id: ID!): Group
     groups: [Group!]!
     peopleYouMayKnow: [PeopleYouMayKnowSuggestion!]!
@@ -223,6 +226,7 @@ export const typeDefs = `#graphql
     userPublicKeys(userIds: [ID!]!): [User!]!
     roomKeyHealth(roomId: ID!): KeyHealthReport!
     memberKeyDeliveryDetails(roomId: ID!): [MemberDeliveryDetail!]!
+    videoRoom(id: ID!): VideoRoom
     getLiveKitToken(roomId: ID!): String!
   }
 
@@ -238,7 +242,7 @@ export const typeDefs = `#graphql
     createDM(username: String!): Room!
     inviteToRoom(roomId: ID!, username: String!): RoomMember!
     generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
-    sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
+    sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int, fileId: ID): Message!
     uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!
     createGroup(name: String!, type: RoomType!, avatar: String): Group!
     addGroupMember(groupId: ID!, username: String!): GroupMember!

@@ -35,18 +35,38 @@ function toRoomShape(room: {
 
 function toMsgShape(m: {
   id: string; roomId: string | null; groupId: string | null;
+  fileId?: string | null;
   encryptedPayload: string; ephemeral: boolean; expiresAt: Date | null; createdAt: Date;
   sender: { id: string; email: string; username: string; avatarUrl: string | null; publicKey: string | null; createdAt: Date };
+  file?: {
+    id: string; roomId: string; encryptedMetadata: string; encryptedBlob?: Buffer | Uint8Array | null; createdAt: Date;
+    uploader: { id: string; email: string; username: string; avatarUrl: string | null; publicKey: string | null; createdAt: Date };
+  } | null;
 }) {
   return {
     id: m.id,
     roomId: m.roomId,
     groupId: m.groupId,
     sender: toUserShape(m.sender),
+    file: m.file ? toFileShape(m.file, false) : null,
     encryptedPayload: m.encryptedPayload,
     ephemeral: m.ephemeral,
     expiresAt: m.expiresAt,
     createdAt: m.createdAt,
+  };
+}
+
+function toFileShape(file: {
+  id: string; roomId: string; encryptedMetadata: string; encryptedBlob?: Buffer | Uint8Array | null; createdAt: Date;
+  uploader: { id: string; email: string; username: string; avatarUrl: string | null; publicKey: string | null; createdAt: Date };
+}, includeBlob: boolean) {
+  return {
+    id: file.id,
+    roomId: file.roomId,
+    uploader: toUserShape(file.uploader),
+    encryptedMetadata: file.encryptedMetadata,
+    encryptedBlob: includeBlob && file.encryptedBlob ? Buffer.from(file.encryptedBlob).toString('base64') : null,
+    createdAt: file.createdAt,
   };
 }
 
@@ -148,7 +168,7 @@ export const messagingResolvers = {
       // Fetch newest-first, then reverse to chronological ascending for display
       const rows = await ctx.prisma.message.findMany({
         where: where as import('@prisma/client').Prisma.MessageWhereInput,
-        include: { sender: true },
+        include: { sender: true, file: { include: { uploader: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit + 1, // +1 to detect hasNextPage
       });
@@ -166,6 +186,27 @@ export const messagingResolvers = {
         edges: edges.map(toMsgShape),
         pageInfo: { hasNextPage, endCursor },
       };
+    },
+
+    file: async (
+      _parent: unknown,
+      args: { id: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const file = await ctx.prisma.file.findUnique({
+        where: { id: args.id },
+        include: { uploader: true },
+      });
+      if (!file) return null;
+
+      const member = await ctx.prisma.roomMember.findFirst({
+        where: { roomId: file.roomId, userId: ctx.userId },
+      });
+      if (!member) throw new Error('Not a member of this room');
+
+      return toFileShape(file, true);
     },
 
     missedEphemeralMessages: async (
@@ -344,15 +385,22 @@ export const messagingResolvers = {
         encryptedPayload: string;
         ephemeral?: boolean;
         ttl?: number;
+        fileId?: string;
       },
       ctx: GraphQLContext
     ) => {
       if (!ctx.userId) throw new Error('Not authenticated');
       if (!args.roomId && !args.groupId) throw new Error('Either roomId or groupId is required');
       if (!args.encryptedPayload?.trim()) throw new Error('encryptedPayload is required');
+      if (args.fileId && args.groupId) throw new Error('File attachments are only supported in room messages');
 
       let isEphemeral = !!args.ephemeral;
       let ttl = args.ttl && ALLOWED_TTL.has(args.ttl) ? args.ttl : DEFAULT_EPHEMERAL_TTL;
+      let attachedFile: {
+        id: string;
+        roomId: string;
+        uploaderId: string;
+      } | null = null;
 
       // ─── Room path ──────────────────────────────────────────────────────────
       if (args.roomId) {
@@ -365,6 +413,19 @@ export const messagingResolvers = {
         });
         if (!member) throw new Error('Not a member of this room');
         if (member.mutedAt) throw new Error('MEMBER_MUTED');
+
+        if (args.fileId) {
+          attachedFile = await ctx.prisma.file.findUnique({
+            where: { id: args.fileId },
+            select: { id: true, roomId: true, uploaderId: true },
+          });
+          if (!attachedFile || attachedFile.roomId !== args.roomId) {
+            throw new Error('File not found in this room');
+          }
+          if (attachedFile.uploaderId !== ctx.userId) {
+            throw new Error('Cannot attach a file uploaded by another user');
+          }
+        }
 
         // Ephemeral room forces ephemeral flag on all messages
         if (room.type === 'EPHEMERAL') {
@@ -395,6 +456,10 @@ export const messagingResolvers = {
         ? `messageReceived:${args.roomId}`
         : `messageReceived:${args.groupId}`;
 
+      if (isEphemeral && args.fileId) {
+        throw new Error('File attachments are not supported on ephemeral messages');
+      }
+
       // ─── Ephemeral → Redis with TTL (never touches PostgreSQL) ──────────────
       if (isEphemeral) {
         const id = randomUUID();
@@ -408,6 +473,7 @@ export const messagingResolvers = {
           roomId: args.roomId ?? null,
           groupId: args.groupId ?? null,
           sender: toUserShape(sender!),
+          file: null,
           encryptedPayload: args.encryptedPayload,
           ephemeral: true,
           expiresAt,
@@ -433,11 +499,12 @@ export const messagingResolvers = {
           roomId: args.roomId ?? null,
           groupId: args.groupId ?? null,
           senderId: ctx.userId,
+          fileId: attachedFile?.id ?? null,
           encryptedPayload: args.encryptedPayload,
           ephemeral: false,
           expiresAt: null,
         },
-        include: { sender: true },
+        include: { sender: true, file: { include: { uploader: true } } },
       });
 
       const shaped = toMsgShape(message);

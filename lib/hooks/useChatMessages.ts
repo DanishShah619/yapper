@@ -18,6 +18,7 @@ const GET_MESSAGES = gql`
         expiresAt
         createdAt
         sender { id username avatarUrl }
+        file { id encryptedMetadata createdAt uploader { id username avatarUrl } }
       }
       pageInfo {
         hasNextPage
@@ -36,6 +37,12 @@ type MessageNode = {
   expiresAt: string | null;
   createdAt: string;
   sender: { id: string; username: string; avatarUrl: string | null };
+  file: {
+    id: string;
+    encryptedMetadata: string;
+    createdAt: string;
+    uploader: { id: string; username: string; avatarUrl: string | null };
+  } | null;
 };
 
 type GetMessagesData = {

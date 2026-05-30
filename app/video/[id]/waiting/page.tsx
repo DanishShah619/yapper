@@ -18,19 +18,16 @@ type WaitingState = 'WAITING' | 'REJECTED' | 'LOCKED';
 export default function WaitingRoomPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
-  const { socket } = useSocket() as any; // Need to ensure useSocket is available, or use global window.socket if implemented that way.
+  const { socket } = useSocket();
 
-  const { data, loading } = useQuery<{ videoRoom: any }>(GET_VIDEO_ROOM, { variables: { id } });
+  const { data, loading } = useQuery<{
+    videoRoom: { id: string; locked: boolean; liveKitRoomId: string | null } | null;
+  }>(GET_VIDEO_ROOM, { variables: { id } });
   const [roomState, setRoomState] = useState<WaitingState>('WAITING');
+  const effectiveRoomState: WaitingState = data?.videoRoom?.locked ? 'LOCKED' : roomState;
 
   useEffect(() => {
-    if (data?.videoRoom?.locked) {
-      setRoomState('LOCKED');
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (!socket || roomState !== 'WAITING') return;
+    if (!socket || effectiveRoomState !== 'WAITING') return;
 
     socket.emit('waiting:join', { roomId: id });
 
@@ -48,11 +45,11 @@ export default function WaitingRoomPage() {
     return () => {
       socket.off('waiting:approved', onApproved);
       socket.off('waiting:rejected', onRejected);
-      if (roomState === 'WAITING') {
+      if (effectiveRoomState === 'WAITING') {
         socket.emit('waiting:leave', { roomId: id });
       }
     };
-  }, [socket, id, router, roomState]);
+  }, [socket, id, router, effectiveRoomState]);
 
   const handleLeave = () => {
     if (socket) socket.emit('waiting:leave', { roomId: id });
@@ -65,7 +62,7 @@ export default function WaitingRoomPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#F0F8FF]">
       <div className="bg-white rounded-2xl border border-[#D6E8F5] shadow-sm p-10 max-w-sm w-full mx-4 text-center">
         
-        {roomState === 'WAITING' && (
+        {effectiveRoomState === 'WAITING' && (
           <>
             <div className="relative w-20 h-20 mx-auto mb-6">
               <div className="absolute inset-0 rounded-full bg-[#D0F5EE] animate-ping opacity-60"></div>
@@ -75,7 +72,7 @@ export default function WaitingRoomPage() {
             </div>
             <h2 className="text-lg font-bold text-[#0A0A0A] mt-2">Waiting for host</h2>
             <p className="text-sm font-medium text-[#6B7A99] mt-1 max-w-xs mx-auto">
-              You'll be admitted once the host approves your request
+              You&apos;ll be admitted once the host approves your request
             </p>
             <button 
               onClick={handleLeave}
@@ -86,7 +83,7 @@ export default function WaitingRoomPage() {
           </>
         )}
 
-        {roomState === 'REJECTED' && (
+        {effectiveRoomState === 'REJECTED' && (
           <>
             <XCircle size={48} className="text-[#DC2626] mx-auto mb-4" />
             <h2 className="text-lg font-bold text-[#0A0A0A]">Request declined</h2>
@@ -102,7 +99,7 @@ export default function WaitingRoomPage() {
           </>
         )}
 
-        {roomState === 'LOCKED' && (
+        {effectiveRoomState === 'LOCKED' && (
           <>
             <Lock size={48} className="text-[#BAD9F5] mx-auto mb-4" />
             <h2 className="text-lg font-bold text-[#0A0A0A]">Room is locked</h2>

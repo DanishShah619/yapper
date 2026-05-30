@@ -32,7 +32,7 @@ interface WaitingUser {
 }
 
 export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
-  const { socket } = useSocket() as any;
+  const { socket } = useSocket();
   const { showToast } = useToast();
   const [waitingUsers, setWaitingUsers] = useState<WaitingUser[]>([]);
 
@@ -47,7 +47,9 @@ export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
   useEffect(() => {
     if (!socket) return;
 
-    const onJoined = (user: WaitingUser) => {
+    socket.emit('videoadmin:join', { roomId });
+
+    const onJoined = ({ user }: { roomId: string; user: WaitingUser }) => {
       setWaitingUsers(prev => {
         if (prev.find(u => u.id === user.id)) return prev;
         return [...prev, user];
@@ -65,14 +67,14 @@ export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
       socket.off('waiting:joined', onJoined);
       socket.off('waiting:left', onLeft);
     };
-  }, [socket]);
+  }, [roomId, socket]);
 
   const handleApprove = async (participantId: string) => {
     try {
       await approveParticipant({ variables: { roomId, participantId } });
       if (socket) socket.emit('waiting:approve', { roomId, participantId });
       setWaitingUsers(prev => prev.filter(u => u.id !== participantId));
-    } catch (e) {
+    } catch {
       // Error handled by useMutation
     }
   };
@@ -82,7 +84,7 @@ export function WaitingRoomPanel({ roomId, onClose }: WaitingRoomPanelProps) {
       await rejectParticipant({ variables: { roomId, participantId } });
       if (socket) socket.emit('waiting:reject', { roomId, participantId });
       setWaitingUsers(prev => prev.filter(u => u.id !== participantId));
-    } catch (e) {
+    } catch {
       // Error handled by useMutation
     }
   };

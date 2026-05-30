@@ -113,6 +113,7 @@ model Message {
   roomId           String?
   groupId          String?
   senderId         String
+  fileId           String?
   encryptedPayload String
   ephemeral        Boolean   @default(false)
   expiresAt        DateTime?
@@ -121,9 +122,11 @@ model Message {
   room   Room?  @relation(fields: [roomId], references: [id], onDelete: Cascade)
   group  Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  file   File?  @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   @@index([roomId, createdAt])
   @@index([groupId, createdAt])
+  @@index([fileId])
   @@map("messages")
 }
 
@@ -137,6 +140,7 @@ model File {
 
   room     Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   uploader User @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   @@index([roomId])
   @@map("files")

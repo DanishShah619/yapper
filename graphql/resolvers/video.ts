@@ -1,9 +1,23 @@
+import { randomUUID } from 'crypto';
 import { GraphQLContext } from '@/graphql/context';
 import { RedisKeys } from '@/lib/redisKeys';
 import { generateLiveKitToken } from '@/lib/livekit';
 
 export const videoResolvers = {
   Query: {
+    videoRoom: async (
+      _parent: unknown,
+      args: { id: string },
+      ctx: GraphQLContext
+    ) => {
+      if (!ctx.userId) throw new Error('Not authenticated');
+
+      const room = await ctx.prisma.videoRoom.findUnique({ where: { id: args.id } });
+      if (!room) return null;
+
+      return room;
+    },
+
     getLiveKitToken: async (
       _parent: unknown,
       args: { roomId: string },
@@ -19,7 +33,6 @@ export const videoResolvers = {
         throw new Error('Room is locked');
       }
 
-      const user = await ctx.prisma.user.findUnique({ where: { id: ctx.userId } });
       return await generateLiveKitToken(ctx.userId, args.roomId);
     },
   },
@@ -39,7 +52,6 @@ export const videoResolvers = {
         },
       });
 
-      const { randomUUID } = require('crypto');
       const updated = await ctx.prisma.videoRoom.update({
         where: { id: room.id },
         data: { liveKitRoomId: randomUUID() },

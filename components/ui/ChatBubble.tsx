@@ -1,11 +1,20 @@
 import React from "react";
-import { CheckCheck, Clock } from "lucide-react";
+import { CheckCheck, Clock, Download, FileText, ImageIcon, Video } from "lucide-react";
+
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+};
 
 interface ChatBubbleProps {
   content: string;
   isSent: boolean;
   senderName?: string;
   timestamp: string;
+  attachment?: ChatAttachment | null;
+  onDownloadAttachment?: () => void;
   ephemeral?: boolean;
   expiresLabel?: string;
   isConsecutive?: boolean;
@@ -13,11 +22,25 @@ interface ChatBubbleProps {
   isFailed?: boolean;
 }
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentIcon({ type }: { type: string }) {
+  if (type.startsWith("image/")) return <ImageIcon size={18} />;
+  if (type === "video/mp4") return <Video size={18} />;
+  return <FileText size={18} />;
+}
+
 export function ChatBubble({
   content,
   isSent,
   senderName,
   timestamp,
+  attachment,
+  onDownloadAttachment,
   ephemeral,
   expiresLabel,
   isConsecutive,
@@ -37,7 +60,30 @@ export function ChatBubble({
       )}
 
       <div className={bubbleClass}>
-        <p className="leading-relaxed whitespace-pre-wrap">{content}</p>
+        {content && <p className="leading-relaxed whitespace-pre-wrap">{content}</p>}
+
+        {attachment && (
+          <button
+            type="button"
+            onClick={onDownloadAttachment}
+            disabled={isPending}
+            className={`mt-2 flex w-full min-w-[220px] max-w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${
+              isSent
+                ? "border-[#D6E8F5] bg-white/70 hover:bg-[#E1F0FF]"
+                : "border-[#BAD9F5] bg-white/60 hover:bg-white"
+            } disabled:cursor-wait disabled:opacity-60`}
+            title="Download attachment"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#D0F5EE] text-[#1ABC9C]">
+              <AttachmentIcon type={attachment.type} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-bold text-[#0A0A0A]">{attachment.name}</span>
+              <span className="block text-[10px] font-semibold text-[#6B7A99]">{formatSize(attachment.size)}</span>
+            </span>
+            <Download size={16} className="shrink-0 text-[#6B7A99]" />
+          </button>
+        )}
 
         <div className="flex items-center justify-end gap-1.5 mt-1.5">
           {ephemeral && (

@@ -1,5 +1,7 @@
 import { GraphQLContext } from '@/graphql/context';
 
+const MAX_ENCRYPTED_FILE_BYTES = 105 * 1024 * 1024;
+
 // Stub resolvers for features not yet implemented or delegated to other resolver files.
 // Group mutations and subscription live in groups.ts.
 // Auth mutations live in auth.ts. User queries live in user.ts.
@@ -34,17 +36,24 @@ export const stubResolvers = {
 
       const room = await ctx.prisma.room.findUnique({ where: { id: args.roomId } });
       if (!room) throw new Error('Room not found');
+      if (room.locked) throw new Error('ROOM_LOCKED');
 
       const member = await ctx.prisma.roomMember.findFirst({
         where: { roomId: args.roomId, userId: ctx.userId },
       });
       if (!member) throw new Error('Not a member of this room');
+      if (member.mutedAt) throw new Error('MEMBER_MUTED');
+
+      const encryptedBlob = Buffer.from(args.encryptedBlob, 'base64');
+      if (encryptedBlob.byteLength > MAX_ENCRYPTED_FILE_BYTES) {
+        throw new Error('File is too large');
+      }
 
       const file = await ctx.prisma.file.create({
         data: {
           roomId: args.roomId,
           uploaderId: ctx.userId,
-          encryptedBlob: Buffer.from(args.encryptedBlob, 'base64'),
+          encryptedBlob,
           encryptedMetadata: args.encryptedMetadata,
         },
         include: { uploader: true },

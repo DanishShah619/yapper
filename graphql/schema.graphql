@@ -81,6 +81,7 @@ type Message {
   roomId: ID
   groupId: ID
   sender: User!
+  file: File
   encryptedPayload: String!
   ephemeral: Boolean!
   expiresAt: DateTime
@@ -102,6 +103,7 @@ type File {
   roomId: ID!
   uploader: User!
   encryptedMetadata: String!
+  encryptedBlob: String
   createdAt: DateTime!
 }
 
@@ -230,6 +232,7 @@ type Query {
   conversation(id: ID!): Room
   conversations: [Room!]!
   messages(roomId: ID, groupId: ID, cursor: String, limit: Int): MessageConnection!
+  file(id: ID!): File
   missedEphemeralMessages(roomId: ID, groupId: ID, since: Float!): [Message!]!
 
   # Groups
@@ -245,6 +248,7 @@ type Query {
   memberKeyDeliveryDetails(roomId: ID!): [MemberDeliveryDetail!]!
 
   # Video
+  videoRoom(id: ID!): VideoRoom
   getLiveKitToken(roomId: ID!): String!
 
   # V2 Stubs
@@ -274,7 +278,7 @@ type Mutation {
   generateInviteLink(roomId: ID, groupId: ID, ttl: Int!): InviteLink!
 
   # Messages
-  sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int): Message!
+  sendMessage(roomId: ID, groupId: ID, encryptedPayload: String!, ephemeral: Boolean, ttl: Int, fileId: ID): Message!
 
   # Files
   uploadFile(roomId: ID!, encryptedBlob: String!, encryptedMetadata: String!): File!

@@ -1,21 +1,47 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Video, MoreVertical, Paperclip, Clock, Send, Mic, ChevronLeft, ChevronDown } from "lucide-react";
+import { Search, Video, MoreVertical, Paperclip, Clock, Send, Mic, ChevronLeft, ChevronDown, X } from "lucide-react";
 import { ConversationAvatar } from "./ConversationAvatar";
-import { ChatBubble } from "./ChatBubble";
+import { ChatAttachment, ChatBubble } from "./ChatBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { useChatMessages } from "@/lib/hooks/useChatMessages";
 import { useSendMessage } from "@/lib/hooks/useSendMessage";
 import { useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socketClient";
 import debounce from "lodash.debounce";
+import { gql } from "@apollo/client";
+import client from "@/lib/apollo-client";
 import {
+  decryptFile,
   decryptMessage,
   getDMRoomKey,
   getOrCreateKeyPair,
   loadRoomKey,
 } from "@/lib/e2ee";
+
+const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+const ATTACHMENT_ACCEPT = [
+  "image/*",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "video/mp4",
+].join(",");
+const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set(["pdf", "docx", "mp4", "jpg", "jpeg", "png", "gif", "webp"]);
+const SUPPORTED_ATTACHMENT_MIME = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "video/mp4",
+]);
+
+const FILE_DOWNLOAD_QUERY = gql`
+  query DownloadFile($id: ID!) {
+    file(id: $id) {
+      id
+      encryptedBlob
+    }
+  }
+`;
 
 // Define the shape of a message ready for UI rendering
 type DecryptedMessage = {
@@ -26,9 +52,47 @@ type DecryptedMessage = {
   timestamp: string;
   ephemeral: boolean;
   expiresAt?: string | null;
+  attachment?: ChatAttachment | null;
   isPending?: boolean;
   isFailed?: boolean;
 };
+
+type DownloadFileData = {
+  file: {
+    id: string;
+    encryptedBlob: string | null;
+  } | null;
+};
+
+function isSupportedAttachment(file: File): boolean {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return file.type.startsWith("image/")
+    || SUPPORTED_ATTACHMENT_MIME.has(file.type)
+    || SUPPORTED_ATTACHMENT_EXTENSIONS.has(extension);
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes.buffer;
+}
+
+function saveDecryptedAttachment(data: ArrayBuffer, attachment: ChatAttachment) {
+  const blob = new Blob([data], { type: attachment.type || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = attachment.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 interface ChatPanelProps {
   conversationId: string;
@@ -103,10 +167,13 @@ export function ChatPanel({
   const [ttl, setTtl] = useState(300);
   const [newMsgCount, setNewMsgCount] = useState(0);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   
   const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -132,12 +199,36 @@ export function ChatPanel({
 
       const decrypted = await Promise.all(messages.map(async (msg) => {
         let content = "[Unable to decrypt]";
+        let attachment: ChatAttachment | null = null;
 
         if (roomKey) {
           try {
             content = await decryptMessage(msg.encryptedPayload, roomKey);
           } catch {
             content = "[Unable to decrypt]";
+          }
+
+          if (msg.file?.encryptedMetadata) {
+            try {
+              const metadata = JSON.parse(await decryptMessage(msg.file.encryptedMetadata, roomKey)) as {
+                name?: string;
+                type?: string;
+                size?: number;
+              };
+              attachment = {
+                id: msg.file.id,
+                name: metadata.name || "Attachment",
+                type: metadata.type || "application/octet-stream",
+                size: typeof metadata.size === "number" ? metadata.size : 0,
+              };
+            } catch {
+              attachment = {
+                id: msg.file.id,
+                name: "Encrypted attachment",
+                type: "application/octet-stream",
+                size: 0,
+              };
+            }
           }
         }
 
@@ -149,6 +240,7 @@ export function ChatPanel({
           timestamp: msg.createdAt,
           ephemeral: msg.ephemeral,
           expiresAt: msg.expiresAt,
+          attachment,
           isPending: false,
           isFailed: false,
         };
@@ -287,24 +379,95 @@ export function ChatPanel({
     emitTypingStop();
   }
 
+  function handleFileSelect(file: File | null) {
+    setAttachmentError(null);
+
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    if (!isSupportedAttachment(file)) {
+      setAttachmentError("Supported files: images, PDFs, DOCX, and MP4.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachmentError("Attachments must be 100 MB or smaller.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (ephemeral) {
+      setAttachmentError("Turn off ephemeral mode before attaching a file.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
+  }
+
+  async function handleDownloadAttachment(attachment: ChatAttachment) {
+    setAttachmentError(null);
+
+    try {
+      const roomKey = await loadRoomKey(conversationId);
+      if (!roomKey) throw new Error("Room key unavailable");
+
+      const { data } = await client.query<DownloadFileData>({
+        query: FILE_DOWNLOAD_QUERY,
+        variables: { id: attachment.id },
+        fetchPolicy: "network-only",
+      });
+
+      const encryptedBlob = data?.file?.encryptedBlob;
+      if (!encryptedBlob) throw new Error("Attachment not found");
+
+      const encryptedBuffer = base64ToArrayBuffer(encryptedBlob);
+      const decryptedBuffer = await decryptFile(encryptedBuffer, roomKey);
+      saveDecryptedAttachment(decryptedBuffer, attachment);
+    } catch (error) {
+      console.error(error);
+      setAttachmentError("Could not download this attachment.");
+    }
+  }
+
   async function handleSend() {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !selectedFile) return;
+    if (selectedFile && ephemeral) {
+      setAttachmentError("Turn off ephemeral mode before sending an attachment.");
+      return;
+    }
+
     const text = inputText.trim();
+    const attachmentFile = selectedFile;
     const sentAt = new Date().toISOString();
     const optimisticId = `optimistic-${Date.now()}`;
 
     setInputText("");
+    setSelectedFile(null);
+    setAttachmentError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     // Append optimistic bubble
     const optimistic: DecryptedMessage = {
       id: optimisticId,
-      content: text,
+      content: text || (attachmentFile ? "Attachment" : ""),
       senderId: currentUserId,
       senderName: "You",
       timestamp: sentAt,
       ephemeral,
       expiresAt: ephemeral ? new Date(Date.now() + ttl * 1000).toISOString() : null,
+      attachment: attachmentFile
+        ? {
+            id: optimisticId,
+            name: attachmentFile.name,
+            type: attachmentFile.type || "application/octet-stream",
+            size: attachmentFile.size,
+          }
+        : null,
       isPending: true,
       isFailed: false,
     };
@@ -317,6 +480,7 @@ export function ChatPanel({
       ephemeral,
       ttl: ephemeral ? ttl : undefined,
       currentUserId,
+      attachment: attachmentFile,
     });
 
     if (!success) {
@@ -324,6 +488,7 @@ export function ChatPanel({
         prev.map(m => m.id === optimisticId ? { ...m, isPending: false, isFailed: true } : m)
       );
       setInputText(text);
+      setSelectedFile(attachmentFile);
       return;
     }
 
@@ -439,6 +604,8 @@ export function ChatPanel({
                   isSent={msg.senderId === currentUserId}
                   senderName={isGroup && msg.senderId !== currentUserId ? msg.senderName : undefined}
                   timestamp={formatTime(msg.timestamp)}
+                  attachment={msg.attachment}
+                  onDownloadAttachment={msg.attachment ? () => handleDownloadAttachment(msg.attachment!) : undefined}
                   ephemeral={msg.ephemeral}
                   expiresLabel={msg.expiresAt ? formatExpiresLabel() : undefined}
                   isConsecutive={isConsecutive}
@@ -470,8 +637,45 @@ export function ChatPanel({
       )}
 
       <div className="bg-white border-t border-[#D6E8F5] px-4 py-3 shrink-0">
+        {selectedFile && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-[#D6E8F5] bg-[#F0F8FF] px-3 py-2">
+            <Paperclip size={16} className="shrink-0 text-[#1ABC9C]" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-[#0A0A0A]">{selectedFile.name}</p>
+              <p className="text-[10px] font-semibold text-[#6B7A99]">
+                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              className="rounded-lg p-1 text-[#6B7A99] transition-colors hover:bg-[#E1F0FF] hover:text-[#0A0A0A]"
+              title="Remove attachment"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {attachmentError && (
+          <p className="mb-2 px-1 text-xs font-semibold text-[#DC2626]">{attachmentError}</p>
+        )}
         <div className="flex items-end gap-3">
-          <button className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150 mb-0.5 shrink-0" title="Attach file">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ATTACHMENT_ACCEPT}
+            className="hidden"
+            onChange={(event) => handleFileSelect(event.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="hover:bg-[#E1F0FF] text-[#6B7A99] hover:text-[#0A0A0A] rounded-lg p-2 transition-colors duration-150 mb-0.5 shrink-0"
+            title="Attach file"
+          >
             <Paperclip size={20} />
           </button>
           <div className="flex-1 relative">
@@ -505,10 +709,10 @@ export function ChatPanel({
           </button>
           <button
             onClick={handleSend}
-            disabled={!inputText.trim() && !sendLoading}
+            disabled={sendLoading || (!inputText.trim() && !selectedFile)}
             className="bg-[#1ABC9C] hover:bg-[#17a589] text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors duration-150 shrink-0 w-10 h-10 flex items-center justify-center p-0 disabled:opacity-50"
           >
-            {inputText.trim() ? <Send size={18} /> : <Mic size={18} />}
+            {inputText.trim() || selectedFile ? <Send size={18} /> : <Mic size={18} />}
           </button>
         </div>
 
